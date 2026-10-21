@@ -1,42 +1,22 @@
-/*
- *	subsystem2.h
- *	Subsystem 2 -- Producer (sample source).  Student ID: <student ID>.
+/** @file subsystem2.h
+ *  @brief Subsystem 2 public interface: motion and encoders (MotionControlTask,
+ * priority 2). Owner: Buddy 2 S Reuben Kanna 2500695.
  *
- *	Public interface of subsystem 2.  Other subsystems include it as
- *	"../subsystem2/subsystem2.h".
+ *  STATUS: PLACEHOLDER - NOT IMPLEMENTED (delivered in Phase 2).
+ *  This placeholder only creates the kernel objects this subsystem owns
+ *  (MBF_MOTION_CMD (4 x 4-byte records, 32 B with headers, D-07)) so that the
+ * shared foundation links and the integration contract is fixed. It drives no
+ * pin and starts no task. Other subsystems include it as
+ * "../subsystem2/subsystem2.h".
  */
 
 #ifndef SUBSYSTEM2_H
 #define SUBSYSTEM2_H
 
 #include "../app.h"
+#include "../shared/app_ipc.h"
 
-#define S2_PRI_PRODUCER		14	/* priority band 14-15 (TEAM.md) */
-#define S2_PERIOD_MS		300	/* one sample every 300 ms */
-
-/* ---------------------------------------------------------------------
- *  IF-01 data format: one sample, sent to subsystem 3's mailbox.
- *  A mailbox message MUST start with a T_MSG header: the kernel links
- *  messages together through it, so the data itself is never copied.
- * --------------------------------------------------------------------- */
-typedef struct {
-	T_MSG	hdr;		/* used by the kernel, do not touch */
-	UW	seq;		/* sample sequence number */
-	UW	time_ms;	/* system time when the sample was taken */
-	INT	value;		/* the "measurement", 0..100 */
-	INT	prc;		/* processor (core) that produced it: 1 or 2 */
-} SAMPLE_MSG;
-
-#define S2_POOL_COUNT	4	/* at most 4 samples in flight */
-
-/* IF-02: the receiver of a sample gives its memory block back to
-   mpf_samples (tk_rel_mpf) and then a slot back to sem_slots
-   (tk_sig_sem, count 1).  Nothing else may use these two objects. */
-IMPORT ID	sem_slots;
-IMPORT ID	mpf_samples;
-
-/* Private to subsystem 2 */
-IMPORT void	producer_task(INT stacd, void *exinf);
-IMPORT INT	s2_make_value(UW seq);
+IMPORT ID
+    mbf_motion_cmd; /* IF-MC: VehicleControllerTask sends packed commands */
 
 #endif /* SUBSYSTEM2_H */

@@ -1,0 +1,106 @@
+/** @file app_cal.h
+ *  @brief Calibration constants and arming switches.
+ *
+ *  EVERY number here that the design marks [TBC] is a placeholder with a
+ *  deliberately conservative value.  A placeholder is NOT a measurement.
+ *  Bench procedures that replace them are in docs/HARDWARE_VALIDATION.md
+ *  (HV-n).  The ARMED switches must stay 0 until the named procedure has
+ *  been performed and signed in docs/HARDWARE_VALIDATION.md.
+ *
+ *  Owner: integration owner (TBC, D-09); each buddy proposes their own values.
+ */
+
+#ifndef APP_CAL_H
+#define APP_CAL_H
+
+#include <stdint.h>
+
+/* ---- Arming switches (0 = fail closed) --------------------------------- */
+
+/** HV-3/HV-4 done: wheel geometry and encoder ticks measured, polarity
+ *  verified on blocks. While 0, MotionControlTask rejects every drive
+ *  command with APP_MOTION_RESULT_REJECTED and keeps the motors braked. */
+#define APP_CAL_MOTION_ARMED 0
+
+/** HV-5 done: ECHO measured <= 3.3 V after the divider/shifter, 5 V supply
+ *  identified. While 0, ObstacleScanTask never drives TRIG. */
+#define APP_CAL_ECHO_SHIFTER_VERIFIED 0
+
+/** HV-6 done: button polarity confirmed. 1 = pressed reads LOW. */
+#define APP_CAL_BUTTON_ACTIVE_LOW 1
+
+/** D-01: 1 adopts stop cause REMOTE_STOP (needs design change approval). */
+#define APP_ADOPT_REMOTE_STOP_CAUSE 0
+
+/* ---- Timing (ms unless stated) ---------------------------------------- */
+#define APP_CAL_T_HOLD_MS 1000U /* START held for recovery, S7->S0 [TBC] */
+#define APP_CAL_T_START_DEBOUNCE_MS 40U /* [TBC] */
+#define APP_CAL_T_STOP_DEBOUNCE_MS                                             \
+    20U /* STOP acts on the first edge; debounce only re-arms [TBC] */
+#define APP_CAL_T_CTRL_HEARTBEAT_MS                                            \
+    100U /* Motion stops if no controller tick for this duration [TBC] */
+#define APP_CAL_T_STALE_LINE_MS                                                \
+    30U /* LineState older than this while FOLLOWING -> STALE_LINE (Version A) \
+         */
+#define APP_CAL_T_STALE_MOTION_MS                                              \
+    30U /* MotionStatus older than this -> STALE_MOTION [TBC] */
+#define APP_CAL_T_JUNC_MS 60U  /* both sensors dark for T_JUNC [TBC] */
+#define APP_CAL_T_LOST_MS 100U /* both sensors light for T_LOST [TBC] */
+#define APP_CAL_T_QUIET_MS                                                     \
+    150U /* barcode quiet zone (Rev B 150 ms proposed)                         \
+          */
+#define APP_CAL_T_GLITCH_US                                                    \
+    300U /* barcode edge intervals shorter than this are merged [TBC] */
+#define APP_CAL_T_REMOTE_START_GUARD_MS 3000U /* D-02 */
+#define APP_CAL_T_SCAN_TIMEOUT_MS                                              \
+    4000U /* profile scan must finish within [TBC] */
+#define APP_CAL_T_LINE_SEARCH_MS 3000U /* bounded S5 search [TBC] */
+#define APP_CAL_T_MOTION_TIMEOUT_MS                                            \
+    8000U                       /* any MOVE/TURN must complete within [TBC] */
+#define APP_CAL_T_ABORT_MS 300U /* hump false trigger [TBC] */
+#define APP_CAL_T_HUMP_MAX_MS 6000U /* episode time bound [TBC] */
+#define APP_CAL_T_THETA_CONFIRM_MS                                             \
+    50U /* pitch above theta_ON for 50 ms (Rev B) */
+#define APP_CAL_T_US_TRIGGER_PERIOD_MS                                         \
+    100U /* forward watch period (>= 60 ms, NFR5) */
+#define APP_CAL_T_ECHO_TIMEOUT_MS 30U  /* NFR5 */
+#define APP_CAL_T_SERVO_SETTLE_MS 150U /* per 30 deg, A11 [TBC] */
+#define APP_CAL_T_BARCODE_PENDING_MS                                           \
+    15000U /* pending command expires if no junction [TBC] */
+
+/* ---- Speeds and geometry ----------------------------------------------- */
+#define APP_CAL_V_NOM_CM_S 20U /* nominal line-following speed [TBC, HV-3] */
+#define APP_CAL_V_REVERSE_CM_S 12U  /* [TBC] */
+#define APP_CAL_V_SEARCH_CM_S 10U   /* [TBC] */
+#define APP_CAL_V_TURN_CM_S 15U     /* [TBC] */
+#define APP_CAL_WHEEL_DIA_MM 65U    /* [TBC, HV-3] */
+#define APP_CAL_TRACK_WIDTH_MM 140U /* wheel-to-wheel [TBC, HV-3] */
+#define APP_CAL_TICKS_PER_REV                                                  \
+    20U /* full quadrature edges per wheel rev [TBC, HV-3] */
+#define APP_CAL_ENC_STALL_MS                                                   \
+    300U /* no ticks while driving for this duration -> STALL [TBC] */
+
+/* ---- Line sensing ------------------------------------------------------ */
+#define APP_CAL_IR_MIN_CONTRAST 400U /* min (black - white) ADC span [TBC] */
+
+/* ---- Obstacle ---------------------------------------------------------- */
+#define APP_CAL_D_STOP_CM                                                      \
+    25U /* two confirmations inside this -> EVT_OBSTACLE [TBC] */
+#define APP_CAL_W_CAR_CM 16U       /* [TBC] */
+#define APP_CAL_M_CLEAR_CM 8U      /* [TBC] */
+#define APP_CAL_R_SWEPT_CM 12U     /* [TBC] */
+#define APP_CAL_D_REVERSE_MM 150U  /* [TBC] */
+#define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
+#define APP_CAL_SERVO_MIN_US 1000U /* 0 deg pulse [TBC, HV-7] */
+#define APP_CAL_SERVO_MAX_US 2000U /* 180 deg pulse [TBC, HV-7] */
+
+/* ---- IMU --------------------------------------------------------------- */
+#define APP_CAL_THETA_ON_HALF_DEG 10 /* 5.0 deg [TBC, A8] */
+#define APP_CAL_THETA_OFF_HALF_DEG 4 /* 2.0 deg [TBC, A8] */
+#define APP_CAL_D_HUMP_MAX_MM 800U   /* [TBC] */
+#define APP_CAL_K_CAL_PERMILLE                                                 \
+    1000U                          /* height scale factor x/1000 [TBC, A8]     \
+                                    */
+#define APP_CAL_COLLISION_MG 2500U /* |a_x| spike threshold [TBC, A9] */
+
+#endif /* APP_CAL_H */

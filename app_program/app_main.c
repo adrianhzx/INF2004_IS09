@@ -1,142 +1,132 @@
-/*
- *	app_main.c
- *	START HERE.  usermain() below is your program's entry point.
+/** @file app_main.c
+ *  @brief START HERE. usermain() is the program's entry point.
  *
- *	How micro T-Kernel starts your code
- *	-----------------------------------
- *	  reset -> kernel initialises itself -> creates the "initial task"
- *	        -> initial task calls usermain()
+ *  How micro T-Kernel starts the code:
+ *    reset -> kernel initialises itself -> creates the "initial task"
+ *          -> initial task calls usermain()
+ *  usermain() runs in that initial task at priority 1 (the highest). On a
+ *  single core nothing else runs until it blocks; on the dual-core build the
+ *  OTHER core may start a new task at once. So usermain() works in phases:
+ *    0. shared hardware bring-up and self-check (app_hw_init)
+ *    1. shared kernel objects (FLG_CTRL, CYC_10MS), every subsystem's
+ *       kernel objects (subsystemN_init), controller objects
+ *    2. every subsystem starts its tasks (subsystemN_start), then the
+ *       controller, then the 10 ms cyclic handler is started LAST so no
+ *       task is woken before it exists.
+ *  If usermain() RETURNS, the kernel shuts the whole system down.
  *
- *	usermain() runs inside that initial task at priority 1 (the highest).
- *	On a single core nothing you create runs until usermain() blocks, but
- *	on the dual-core build the OTHER core may start a new task at once.
- *	So usermain() works in two phases:
- *	  1. every subsystem creates its kernel objects  (subsystemN_init)
- *	  2. every subsystem starts its tasks             (subsystemN_start)
- *	and then puts the initial task to sleep forever.
- *	If usermain() RETURNS, the kernel shuts the whole system down.
- *
- *	The example system: one subsystem per folder, one task each
- *	------------------------------------------------------------
- *	  subsystem1/  LED       blinks GP19, paced by a cyclic handler
- *	  subsystem2/  Producer  makes a "sample" every 300 ms     (core 1)
- *	  subsystem3/  Consumer  collects samples into statistics  (core 0)
- *	  subsystem4/  Monitor   prints reports, pauses/resumes the LED
- *	  subsystem5/  (empty template for the fifth student)
- *
- *	How they talk to each other (the interfaces, see TEAM.md section 5):
- *	  IF-01  S2 -> S3  mailbox mbx_samples      (owned by S3)
- *	  IF-02  S3 -> S2  semaphore sem_slots + memory pool mpf_samples
- *	                   (owned by S2: S3 hands slots and blocks back)
- *	  IF-03  S3 -> S4  message buffer mbf_summary + event flag flg_events
- *	                   (owned by S4)
- *	  IF-04  S4 -> S3  reads app_stats under mutex mtx_stats (owned by S3)
- *	  IF-05  S4 -> S1  suspends/resumes the LED task tid_led (owned by S1)
- *	The subsystem that RECEIVES or OWNS the data creates the object and
- *	publishes its ID in its header; the other side just uses it.
- *
- *	micro T-Kernel APIs used, and where to find them:
- *	  tasks       tk_cre_tsk tk_sta_tsk tk_slp_tsk tk_wup_tsk tk_can_wup
- *	              tk_dly_tsk tk_sus_tsk tk_rsm_tsk tk_chg_pri tk_ref_tsk
- *	              tk_get_tid tk_get_prc                         app_main.c, S1-S4
- *	  semaphore   tk_cre_sem tk_wai_sem tk_sig_sem tk_ref_sem       S2, S3, S4
- *	  mem. pool   tk_cre_mpf tk_get_mpf tk_rel_mpf tk_ref_mpf       S2, S3, S4
- *	  mailbox     tk_cre_mbx tk_snd_mbx tk_rcv_mbx                  S2, S3
- *	  mutex       tk_cre_mtx tk_loc_mtx tk_unl_mtx                  S3, S4
- *	  msg buffer  tk_cre_mbf tk_snd_mbf tk_rcv_mbf                  S3, S4
- *	  event flag  tk_cre_flg tk_set_flg tk_wai_flg                  S3, S4
- *	  cyclic      tk_cre_cyc tk_ref_cyc                             S1
- *	  alarm       tk_cre_alm tk_sta_alm tk_stp_alm                  S4
- *	  time        tk_get_tim                                        S2, S4
- *	  system      tk_ref_ver                                        app_main.c
- *
- *	Output appears on the USB serial port (115200 8N1 in any terminal).
+ *  Safety: motion is braked by default. Nothing moves until the controller
+ *  is in S1, the calibration is signed off (APP_CAL_MOTION_ARMED) and the
+ *  operator presses START (Rev B section 5).
  */
 
 #include "app.h"
 
-/*
- * Create and start one task (declared in app.h for every subsystem).
- *   prc = TP_PRC1 (core 0), TP_PRC2 (core 1), or 0 for "any core".
- */
-EXPORT ID app_start_task(FP entry, PRI pri, UW prc, const char *name)
+#include "shared/app_cal.h"
+#include "shared/app_gpio_irq.h"
+#include "shared/app_hw.h"
+#include "shared/app_ipc.h"
+#include "shared/app_safety.h"
+#include "shared/vehicle_controller.h"
+
+EXPORT ID
+app_start_task_stack (FP entry, PRI pri, SZ stksz, const char * name)
 {
-	T_CTSK	ctsk = {0};
-	ID	tid;
-	ER	er;
+    T_CTSK ctsk;
+    ID     tid;
+    ER     er;
 
-	ctsk.task    = entry;		/* function the task runs */
-	ctsk.itskpri = pri;		/* initial priority (1 = highest) */
-	ctsk.stksz   = TASK_STACK_SIZE;	/* kernel allocates the stack */
-	ctsk.tskatr  = TA_HLNG		/* written in a high-level language (C) */
-		     | TA_RNG3;		/* runs at user protection level */
+    ctsk.exinf   = NULL;
+    ctsk.task    = entry;
+    ctsk.itskpri = pri;
+    ctsk.stksz   = stksz;
+    ctsk.tskatr  = TA_HLNG | TA_RNG3;
 #if TK_SUPPORT_SMP
-	if (prc != 0) {
-		ctsk.tskatr |= TA_ASSPRC;	/* honour the affinity below */
-		ctsk.assprc  = prc;		/* which core(s) it may run on */
-	}
-#else
-	(void)prc;			/* single-core build: no affinity */
+    ctsk.assprc = 0;
 #endif
-
-	/* tk_cre_tsk: create the task.  It starts in the DORMANT state. */
-	tid = tk_cre_tsk(&ctsk);
-	if (tid < E_OK) {
-		CHECK(tid, name);
-		return tid;
-	}
-
-	/* tk_sta_tsk: DORMANT -> READY.  The int is passed as stacd. */
-	er = tk_sta_tsk(tid, 0);
-	CHECK(er, name);
-	return tid;
+    tid = tk_cre_tsk(&ctsk);
+    if (tid < E_OK)
+    {
+        CHECK(tid, name);
+        return tid;
+    }
+    er = tk_sta_tsk(tid, 0);
+    CHECK(er, name);
+    return (er < E_OK) ? (ID) er : tid;
 }
 
-EXPORT INT usermain(void)
+EXPORT ID
+app_start_task (FP entry, PRI pri, UW prc, const char * name)
 {
-	T_RVER	ver;
+    (void) prc; /* Rev B: single-core schedule; no affinity requested */
+    return app_start_task_stack(entry, pri, (SZ) TASK_STACK_SIZE, name);
+}
 
-	/* tk_ref_ver: ask the kernel who it is */
-	tk_ref_ver(&ver);
-	tm_printf((UB*)"\n=== micro T-Kernel on Raspberry Pi Pico W"
-		  " (spec 0x%04x, product 0x%04x) ===\n", ver.spver, ver.prver);
+EXPORT INT
+usermain (void)
+{
+    T_RVER   ver;
+    uint32_t hw_ok;
+
+    tk_ref_ver(&ver);
+    tm_printf((UB *) "\n=== IS09 autonomous car, micro T-Kernel on Pico W"
+                     " (spec 0x%04x, product 0x%04x) ===\n",
+              ver.spver, ver.prver);
 #if TK_SUPPORT_SMP
-	tm_printf((UB*)"dual-core (SMP) build, usermain on core %d\n",
-		  tk_get_prc() - 1);	/* tk_get_prc() counts from 1 */
+    tm_printf(
+        (UB *) "dual-core (SMP) build - NOT the validated demo profile\n");
 #else
-	tm_printf((UB*)"single-core build\n");
+    tm_printf((UB *) "single-core build (demo profile)\n");
 #endif
 
-	/* Phase 1: every subsystem creates its kernel objects */
-	CHECK(subsystem1_init(), "subsystem1_init");
-	CHECK(subsystem2_init(), "subsystem2_init");
-	CHECK(subsystem3_init(), "subsystem3_init");
-	CHECK(subsystem4_init(), "subsystem4_init");
-	CHECK(subsystem5_init(), "subsystem5_init");
+    /* Phase 0: shared hardware bring-up and the safety foundation. */
+    hw_ok = app_hw_init();
+    tm_printf((UB *) "hw self-check: 0x%x (timer %d, pwm %d, io %d)\n", hw_ok,
+              (hw_ok & APP_HW_OK_TIMER_RUNS) ? 1 : 0,
+              (hw_ok & APP_HW_OK_PWM_RELEASED) ? 1 : 0,
+              (hw_ok & APP_HW_OK_IO_RELEASED) ? 1 : 0);
+    app_safety_init();
+    CHECK(app_ipc_init(), "app_ipc_init");
+    CHECK(app_gpio_irq_init(), "app_gpio_irq_init");
 
-	/* Phase 2: every subsystem starts its tasks */
-	CHECK(subsystem1_start(), "subsystem1_start");
-	CHECK(subsystem2_start(), "subsystem2_start");
-	CHECK(subsystem3_start(), "subsystem3_start");
-	CHECK(subsystem4_start(), "subsystem4_start");
-	CHECK(subsystem5_start(), "subsystem5_start");
+    /* Phase 1: every subsystem creates its kernel objects. Motion (2) first
+       so MBF_MOTION_CMD exists before the controller; telemetry (1) so the
+       event buffer exists before anyone posts. */
+    CHECK(subsystem1_init(), "subsystem1_init");
+    CHECK(subsystem2_init(), "subsystem2_init");
+    CHECK(subsystem3_init(), "subsystem3_init");
+    CHECK(subsystem4_init(), "subsystem4_init");
+    CHECK(subsystem5_init(), "subsystem5_init");
+    CHECK(vehicle_controller_init(), "vehicle_controller_init");
+    vehicle_controller_set_boot_check(
+        hw_ok); /* latches CRITICAL_RUNTIME on failure */
 
-	tm_printf((UB*)"all subsystems started\n\n");
+    /* Phase 2: start tasks, controller, then the cyclic handler last. */
+    CHECK(subsystem2_start(), "subsystem2_start");
+    CHECK(subsystem3_start(), "subsystem3_start");
+    CHECK(subsystem4_start(), "subsystem4_start");
+    CHECK(subsystem5_start(), "subsystem5_start");
+    CHECK(subsystem1_start(), "subsystem1_start");
+    CHECK(vehicle_controller_start(), "vehicle_controller_start");
+    CHECK(app_ipc_start(), "app_ipc_start");
+
+    tm_printf(
+        (UB *) "all subsystems started; motion armed=%d, echo verified=%d\n",
+        APP_CAL_MOTION_ARMED, APP_CAL_ECHO_SHIFTER_VERIFIED);
 
 #if APP_TEST
-	/* Test build (make TEST=1): run every subsystem's tests in turn,
-	   here in the initial task, while the system is running.  Tests may
-	   call tk_dly_tsk() to let the other tasks work for a while. */
-	tm_printf((UB*)"[TEST] === test run start ===\n");
-	subsystem1_test();
-	subsystem2_test();
-	subsystem3_test();
-	subsystem4_test();
-	subsystem5_test();
-	tm_printf((UB*)"[TEST] === test run end ===\n");
+    /* Test build (make TEST=1): run every self-test in turn, here in the
+       initial task, while the system is running. */
+    tm_printf((UB *) "[TEST] === test run start ===\n");
+    subsystem1_test();
+    subsystem2_test();
+    subsystem3_test();
+    subsystem4_test();
+    subsystem5_test();
+    app_shared_test(); /* last: SH-U08 leaves the system latched in S7 */
+    tm_printf((UB *) "[TEST] === test run end ===\n");
 #endif
 
-	/* Sleep forever.  Returning from usermain() would shut down. */
-	tk_slp_tsk(TMO_FEVR);
-	return 0;
+    tk_slp_tsk(TMO_FEVR); /* returning would shut the system down */
+    return 0;
 }

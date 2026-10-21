@@ -24,3 +24,6 @@ config/wifi_secrets.h
 
 # macOS
 .DS_Store
+
+# host test binary and generated vectors
+testing/host/test_shared

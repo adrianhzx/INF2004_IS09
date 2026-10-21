@@ -1,0 +1,7 @@
+SNAP 01c894fe7ffc81ffff010000809cfdefff04 seq=200 sys=4 mot=2 cause=10 faults=8191 sl=127 sr=64 el=65535 er=1 dist=-32768 lerr=-100 onl=1 bc=6 hmax=127 hact=1 cls=6 rng=511 act=4
+SNAP 0101020000502a0000000039300700003200 seq=1 sys=2 mot=0 cause=0 faults=0 sl=20 sr=21 el=0 er=0 dist=12345 lerr=7 onl=0 bc=0 hmax=0 hact=0 cls=0 rng=100 act=0
+HB 0109ffff2bff seq=9 up=65535 conn=3 bo=10 drop=255
+OBS 0121efbeadde67452301 seq=33 w0=3735928559 w1=19088743
+EVT 6aefbea5 type=10 src=3 payload=48879 stamp=165
+CMD 0145c9 cmd=1 seq=5
+CMD 01868e cmd=2 seq=6

@@ -1,0 +1,10 @@
+g_ctrl_heartbeat        1 bytes @0x2001329d
+g_remote_cmd            1 bytes @0x20013140
+g_safety_word           1 bytes @0x20013284
+g_stop_latch            1 bytes @0x20013288
+g_fault_mask            2 bytes @0x20013286
+g_mission_status        4 bytes @0x20013144
+g_motion_status_a       4 bytes @0x2001314c
+g_motion_status_b       4 bytes @0x20013148
+g_slots               240 bytes @0x2001315c
+total shared storage 258 bytes

@@ -1,193 +1,108 @@
-# Team and subsystems
+# Team and subsystems - IS09
 
-The tables are pre-filled with the **example** in `app_program/` (marked
-*example*). Replace those rows with your own as you replace the example code.
-
-Fill this in at the start of the project and keep it up to date. It is the
-single place that says **who owns what**, so that five people can work in
-one firmware image without clashing over pins, priorities, or kernel objects.
-
-A **subsystem** is one student's part of the product, with its own folder.
-It may contain several tasks and own several peripherals (see section 3).
-
-Rule: **only the owner edits a subsystem's folders.** To change another
-subsystem, ask its owner or open a pull request for them to review.
+Single place that says **who owns what**. Source: Week 6 Design Review Rev B
+(21 Oct 2026) and Tribunal 1 Version B. Rule: **only the owner edits a
+subsystem's folder.** Shared files (`app_program/app_main.c`, `app.h`,
+`app_program/shared/`, this file) change only by team agreement; changes to
+`app_program/shared/app_data.h` are reviewed by the consuming buddy
+(`docs/TRACEABILITY.md` code-review rule).
 
 ## 1. Members and subsystems
 
-| # | Subsystem (what it does) | Student ID | GitHub username | Code | Tests |
-|---|---|---|---|---|---|
-| 1 | *example:* LED heartbeat on GP19 | | | `app_program/subsystem1/` | `testing/subsystem1/` |
-| 2 | *example:* Producer: makes a sample every 300 ms | | | `app_program/subsystem2/` | `testing/subsystem2/` |
-| 3 | *example:* Consumer: collects samples into statistics | | | `app_program/subsystem3/` | `testing/subsystem3/` |
-| 4 | *example:* Monitor: prints reports, pauses the LED | | | `app_program/subsystem4/` | `testing/subsystem4/` |
-| 5 | | | | `app_program/subsystem5/` | `testing/subsystem5/` |
+| # | Subsystem | Student | ID | GitHub username | Code | Tests |
+|---|---|---|---|---|---|---|
+| 1 | Wi-Fi/MQTT telemetry and commands (TelemetryCommsTask) | Xavier Lam Jun Jie | 2500887 | *(fill in)* | `app_program/subsystem1/` | `testing/subsystem1/` |
+| 2 | Motion and encoders (MotionControlTask, EncoderIsr); owner of `app_data.h`, `app_motion.h`, SafeStop helper coordination | S Reuben Kanna | 2500695 | *(fill in)* | `app_program/subsystem2/` | `testing/subsystem2/` |
+| 3 | Line sensing and barcode (LineSensingTask, BarcodeDecodeTask, BarcodeEdgeIsr) | Xu Zhiqiang | 2501297 | *(fill in)* | `app_program/subsystem3/` | `testing/subsystem3/` |
+| 4 | IMU, hump, collision (ImuTask) | Wong Wei Qi | 2500430 | *(fill in)* | `app_program/subsystem4/` | `testing/subsystem4/` |
+| 5 | Ultrasonic scan, obstacle profile (ObstacleScanTask, EchoIsr) | Ho Zhi Xian Adrian | 2500280 | adrianhzx | `app_program/subsystem5/` | `testing/subsystem5/` |
+| shared | VehicleControllerTask, safety foundation, IPC catalogue, hardware helpers, data layer | **Integration owner: TBC (D-09) - name required** | | | `app_program/shared/` | `testing/host/`, `testing/shared/` |
 
-Shared files (`app_program/app_main.c`, `app_program/app.h`, this file)
-are changed only by agreement of the team. The exception is claiming an empty
-row in this file (a pin, a peripheral, an interface ID), which anyone may do
-(section 2).
-
-## 2. Pins
-
-One owner per pin. Claim a pin here **before** you wire or code it.
-
-**Why:** two subsystems using the same pin is one of the most common and
-hardest-to-find mistakes in a team project. The code builds without any
-error, but the hardware misbehaves. Each subsystem can pass its own tests
-and then fail once they are combined, and two outputs driving the same pin
-against each other can damage it. Writing the claim down first means a clash
-is spotted when someone edits this table, not hours later on the bench.
-
-**No instructor check needed.** The team keeps this table itself. You do not
-need the instructor, or the rest of the team, to check or approve a claim:
-if the row is empty, fill it in and commit. If two people claim the same
-pin, they agree between themselves who moves. Only the *reserved* rows are
-fixed.
+## 2. Pins (Rev B section 2; verify silkscreen before power, HV-1)
 
 | Pin | Owner | Used for |
 |---|---|---|
-| GP23, GP24, GP25, GP29 | *reserved* | Pico W radio |
-| GP0 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
-| GP1 | | (taken whenever the team builds with `CRASH_REPORT=1`) |
-| GP2 | | |
-| GP3 | | |
-| GP4 | | |
-| GP5 | | |
-| GP6 | | |
-| GP7 | | |
-| GP8 | | |
-| GP9 | | |
-| GP10 | | |
-| GP11 | | |
-| GP12 | | |
-| GP13 | | |
-| GP14 | | |
-| GP15 | | |
-| GP16 | | |
-| GP17 | | |
-| GP18 | | |
-| GP19 | *example:* S1 | external LED (LED + 330 Ω to GND) |
-| GP20 | | |
-| GP21 | | |
-| GP22 | | |
-| GP26 | | (ADC0 capable) |
-| GP27 | | (ADC1 capable) |
-| GP28 | | (ADC2 capable) |
+| GP23, GP24, GP25, GP29 | *reserved* | Pico W radio (kernel) |
+| GP0 | S2 / EncoderIsr | left encoder A (GROVE 1). **Build never uses CRASH_REPORT=1 / CONSOLE=uart** |
+| GP1 | S2 / EncoderIsr | left encoder B (GROVE 1) |
+| GP2 | S2 / EncoderIsr | right encoder A (GROVE 2) |
+| GP3 | S2 / EncoderIsr | right encoder B (GROVE 2) |
+| GP4 | S4 / ImuTask | I2C0 SDA, LSM303DLHC (GROVE 3) |
+| GP5 | S4 / ImuTask | I2C0 SCL (GROVE 3) |
+| GP6 | spare | keep unconnected (shares GROVE 5 with GP26) |
+| GP7 | S3 / BarcodeEdgeIsr | barcode IR DOUT, both edges (GROVE 7); AOUT disconnected |
+| GP8 | S2 / MotionControlTask | M1A (left motor) PWM slice 4A |
+| GP9 | S2 / MotionControlTask | M1B PWM slice 4B |
+| GP10 | S2 / MotionControlTask | M2A (right motor) PWM slice 5A |
+| GP11 | S2 / MotionControlTask | M2B PWM slice 5B |
+| GP12, GP13, GP14 | spare | servo headers 1-3 unused |
+| GP15 | S5 / ObstacleScanTask | scan servo PWM 50 Hz (servo header 4), slice 7B |
+| GP16 | S5 / ObstacleScanTask | HC-SR04 TRIG (GROVE 4) |
+| GP17 | S5 / EchoIsr | HC-SR04 ECHO **through <= 3.3 V divider/shifter (HV-5)** |
+| GP18 | shared / VehicleControllerTask | on-board NeoPixel (optional status) |
+| GP19 | spare | used only by the TEST image as a forced-interrupt pin (SH-U03/04/08) |
+| GP20 | shared / VehicleControllerTask | START button (active-low assumed, HV-6) |
+| GP21 | shared / STOP ISR -> SafeStop_Request | STOP button |
+| GP22 | shared / VehicleControllerTask | buzzer (optional), slice 3A |
+| GP26 | S3 / LineSensingTask | ADC0 left line IR AOUT (GROVE 5) |
+| GP27 | S3 / LineSensingTask | ADC1 centre line IR AOUT (GROVE 6) |
+| GP28 | *reserved* | ADC2 VBAT/2 only if the solder jumper is fitted; never barcode AOUT |
 
 ## 3. Peripherals
 
-**Subsystems, tasks and peripherals are three different things:**
-
-| Term | What it is | Example |
-|---|---|---|
-| **Subsystem** | one student's part of the product, one folder | "environment sensing", "motor control", "user interface" |
-| **Task** | one thread of execution. A subsystem may have **as many tasks as it needs** | a sampling task and a filtering task, both in "environment sensing" |
-| **Peripheral** | one hardware block on the RP2040 | I2C0, UART1, the ADC |
-
-A driver is **not** a subsystem. It is code *inside* the subsystem that
-needs that hardware: the "environment sensing" subsystem contains the I2C
-sensor code, and owns I2C0. Write it as `drv_<name>.c` / `drv_<name>.h` in
-that subsystem's folder, never under `device/`, and call it only from the
-peripheral's owning task. The kernel's own drivers in `device/` (serial,
-I2C, ADC) may be used instead; switching one on in `config/config_device.h`
-changes shared configuration, so record it in the table below first.
-
-**The rule: each peripheral is driven by exactly one task, its *owning
-task*.** That task can be in any subsystem, and one subsystem may own
-several peripherals (one owning task each, or one task owning all of them).
-Every other task, in the same subsystem or another one, asks the owning task
-through a kernel object (section 5) and never touches that peripheral itself.
-
-*Why:* this port runs tasks on both cores at the same time. If two tasks
-drive the same I2C or UART block at once, their transfers get mixed up, and
-the drivers have no locking to stop it.
-
 | Peripheral | Owner subsystem | Owning task | Pins |
 |---|---|---|---|
-| UART1 | | | |
-| I2C0 | | | |
-| I2C1 | | | |
-| SPI0 | | | |
-| SPI1 | | | |
-| ADC | | | GP26–GP28 |
-| PWM slices (list) | | | |
-| WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in) | GP23–25, GP29 |
+| I2C0 | 4 | ImuTask (own driver in `subsystem4/drv_*`, kernel I2C driver stays OFF) | GP4, GP5 |
+| ADC | 3 | LineSensingTask (decision Phase 3: kernel `adca` device vs task-owned polled conversion) | GP26, GP27 (GP28 reserved) |
+| PWM slices 4, 5 | 2 | MotionControlTask | GP8-GP11 |
+| PWM slice 7 (ch B) | 5 | ObstacleScanTask | GP15 |
+| PWM slice 3 (ch A) | shared | VehicleControllerTask | GP22 |
+| IO_IRQ_BANK0 | shared | `app_gpio_irq.c` dispatcher; one callback per pin, owners above | GP0-3, 7, 17, 20, 21 |
+| TIMER (1 MHz) | shared | read-only by everyone (`app_hw_time_us`) | - |
+| WiFi radio, TCP/IP, MQTT | *kernel* | `cyw43_utk_task` (built in); S1 fills/empties message buffers that the kernel task polls (D-10) | GP23-25, GP29 |
 
-### WiFi and MQTT are special
+## 4. Task priorities (Rev B section 3; 1 is highest; kernel uses 3 and 4)
 
-The radio and the network stack belong to the kernel's built-in WiFi service
-task, `cyw43_utk_task` (`lib/libwifi/sysdepend/pico_rp2040/`). **No student
-task may call `cyw43_...`, lwIP or MQTT functions, not even from a
-"WiFi subsystem".** The calls are not safe from any other task, on either core.
+| Task | Priority | Period / trigger | Subsystem | Stack (bytes, measured Phase 8) |
+|---|---|---|---|---|
+| MotionControlTask | 2 | 10 ms (CYC_10MS wake) | 2 | 2048 |
+| VehicleControllerTask | 3 | FLG_CTRL events + 20 ms tick | shared | 2048 |
+| LineSensingTask | 4 | 10 ms | 3 | 1536 |
+| ImuTask | 5 | 10 ms | 4 | 1536 |
+| ObstacleScanTask | 6 | 100 ms watch tick + requests | 5 | 2048 |
+| BarcodeDecodeTask | 7 | FLG_BARCODE events, 150 ms quiet timeout | 3 | 1536 |
+| TelemetryCommsTask | 8 | 20 ms loop; 200 ms / 1 s cadence | 1 | 2048 |
 
-What students *can* do:
-
-- **Read the connection state** from any task, which is always safe:
-  ```c
-  #include "cyw43_utk.h"
-  T_CYW43_UTK_STATUS st;
-  cyw43_utk_get_status(&st);   /* st.ready, st.link_status, st.ip_addr, ... */
-  ```
-- **Send or receive data over the network** by adding code that *runs
-  inside the service task*. The MQTT client is in
-  `lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.c`. It publishes a heartbeat
-  today. A "cloud / reporting" subsystem would add a kernel object
-  (e.g. a message buffer) that application tasks fill. The MQTT code then
-  reads it with `TMO_POL` (never blocking) and publishes it.
-  Because this changes shared library code, **agree it with the team and
-  the instructor first**, and record it as an interface in section 5.
-  It needs the `NET=lwip MQTT=1` build (README section 3).
-
-## 4. Task priorities
-
-1 is the highest. 1–4 are used by the kernel (USB console 3, WiFi 4). Each subsystem gets its own band by default;
-change it only by team agreement. Write down every task you create.
-
-| Subsystem | Priority band | Tasks (name – priority – core) |
-|---|---|---|
-| 1 | 12–13 | *example:* led_task – 12 – any |
-| 2 | 14–15 | *example:* producer_task – 14 – core 1 |
-| 3 | 16–17 | *example:* consumer_task – 16 – core 0 |
-| 4 | 18–19 | *example:* monitor_task – 18 – any |
-| 5 | 20–21 | |
-
-Core: `TP_PRC1` = core 0, `TP_PRC2` = core 1, or "any".
+All on core 0 (`SMP=0` demo profile). Note: the kernel's USB console task is
+priority 3 and the Wi-Fi service task priority 4, both above our tasks 4-8.
 
 ## 5. Interfaces between subsystems
 
-Every arrow between two subsystems is listed here. The **provider** creates
-the kernel object and publishes its ID in its own `subsystemN.h`; the **user** only
-sends to it or waits on it. Agree on the data format before coding.
-
-| ID | From → To | Mechanism | Object ID name | Data / meaning | Agreed by |
+| ID | From -> To | Mechanism | Object | Data | Agreed by |
 |---|---|---|---|---|---|
-| IF-01 | S2 → S3 | mailbox (owned by S3) | `mbx_samples` | `SAMPLE_MSG` in `subsystem2.h` | *example* |
-| IF-02 | S3 → S2 | semaphore + fixed memory pool (owned by S2) | `sem_slots`, `mpf_samples` | receiver returns the block, then 1 slot | *example* |
-| IF-03 | S3 → S4 | message buffer + event flag (owned by S4) | `mbf_summary`, `flg_events` | text line ≤ `S4_SUMMARY_MAX` bytes, then `FLG_BATCH` | *example* |
-| IF-04 | S4 → S3 | shared data under a mutex (owned by S3) | `app_stats`, `mtx_stats` | `APP_STATS`, read only while locked | *example* |
-| IF-05 | S4 → S1 | task control | `tid_led` | `tk_sus_tsk` / `tk_rsm_tsk` / `tk_chg_pri` | *example* |
-| IF-06 | | | | | |
+| IF-SS | any -> Controller | `app_safe_stop_request(cause)` + FLG_CTRL `EVT_SAFE_STOP` | `g_stop_latch`, safety word | first cause wins; Motion reads latch each 10 ms | Rev B |
+| IF-FM | any -> any | `app_fault_set/clr` | `g_fault_mask` | 13 bits, never a stop trigger | Rev B |
+| IF-MC | Controller -> Motion | message buffer (owned by S2) | `mbf_motion_cmd` | 4 B packed `MotionCmd` | Rev B |
+| IF-MS | Motion -> Controller, IMU, Comms | two lock-free words | `g_motion_status_a/b` | speeds, distance, state, seqs, tags | Rev B + D-04 |
+| IF-LS | Line -> Motion, Controller, Comms | lock-free word + FLG_CTRL events | `g_line_state` | error, steer, on_line, event, seq | Rev B |
+| IF-BC | Barcode -> Controller, Comms | byte + FLG_CTRL `EVT_BARCODE`; Controller -> Barcode `flg_barcode` ARM/DISARM | `g_barcode_byte`, `flg_barcode` | result + seq | Rev B |
+| IF-IS | IMU -> Controller, Comms | lock-free word + `EVT_HUMP_START/END` | `g_imu_state` | 32-bit ImuState | Rev B |
+| IF-OP | Scan -> Controller, Comms | mutex copy (owned by S5) + `EVT_OBSTACLE/SCAN_DONE/SCAN_FAIL/SIDE_UNSAFE`; Controller -> Scan `flg_scan` requests | `g_obstacle_profile[2]`, `mtx_obstacle`, `flg_scan` | 50-bit profile | Rev B |
+| IF-TE | any -> Comms | message buffer (owned by S1), non-blocking | `mbf_telem_evt` | 4 B event records, drop counted | Rev B |
+| IF-RC | Comms -> Controller | byte + FLG_CTRL `EVT_REMOTE_CMD` | `g_remote_cmd`, `g_remote_cmd_gen` | validated START/STOP | Rev B + D-11 |
+| IF-CW | Comms -> Controller | lock-free halfword | `g_comms_word` | conn state, backoff, dropped | Rev B |
+| IF-HB | Controller -> Motion | byte | `g_ctrl_heartbeat` | increments every 20 ms | Rev B |
+| IF-CYC | shared -> Motion, Line, IMU, Scan, Controller | cyclic handler `tk_wup_tsk`/`tk_set_flg` | CYC_10MS | 10 ms wake, 20 ms and 100 ms ticks | Rev B |
 
-Each interface is tested by at least one integration test
-(`testing/integration/TEST_LOG.md`).
+## 6. Kernel object budget (`config/config.h` limits)
 
-## 6. Kernel object budget
+| Object | Limit | shared | S1 | S2 | S3 | S4 | S5 |
+|---|---|---|---|---|---|---|---|
+| Task | 32 | 1 | 1 | 1 | 2 | 1 | 1 |
+| Event flag | 16 | 1 (FLG_CTRL) | | | 1 (FLG_BARCODE) | | 1 (FLG_SCAN) |
+| Mutex | 12 | | | | | | 1 (MTX_OBSTACLE, TA_INHERIT) |
+| Message buffer | 12 | | 1 (256 B) | 1 (32 B) | | | |
+| Cyclic handler | 12 | 1 | | | | | |
+| Interrupt handler | - | 1 (IO_IRQ_BANK0) | | | | | |
 
-Limits are set in `config/config.h`. If the team needs more, raise the
-limit there. The numbers below are the example's usage.
-
-| Object | Limit | S1 | S2 | S3 | S4 | S5 |
-|---|---|---|---|---|---|---|
-| Task | 32 | 1 | 1 | 1 | 1 | |
-| Semaphore | 16 | | 1 | | | |
-| Event flag | 16 | | | | 1 | |
-| Mailbox | 12 | | | 1 | | |
-| Mutex | 12 | | | 1 | | |
-| Message buffer | 12 | | | | 1 | |
-| Fixed memory pool | 12 | | 1 | | | |
-| Variable memory pool | 12 | | | | | |
-| Cyclic handler | 12 | 1 | | | | |
-| Alarm handler | 12 | | | | 1 | |
-
-(The kernel's USB and WiFi service tasks also use a few of these.)
+(The kernel's USB and Wi-Fi service tasks also use a few of these.)

@@ -1,36 +1,21 @@
-/*
- *	subsystem3.h
- *	Subsystem 3 -- Consumer (statistics).  Student ID: <student ID>.
+/** @file subsystem3.h
+ *  @brief Subsystem 3 public interface: line sensing and barcode
+ * (LineSensingTask 4, BarcodeDecodeTask 7). Owner: Buddy 3 Xu Zhiqiang 2501297.
  *
- *	Public interface of subsystem 3.  Other subsystems include it as
- *	"../subsystem3/subsystem3.h".
+ *  STATUS: PLACEHOLDER - NOT IMPLEMENTED (delivered in Phase 3).
+ *  This placeholder only creates the kernel objects this subsystem owns
+ *  (FLG_BARCODE) so that the shared foundation links and the
+ *  integration contract is fixed. It drives no pin and starts no task.
+ *  Other subsystems include it as "../subsystem3/subsystem3.h".
  */
 
 #ifndef SUBSYSTEM3_H
 #define SUBSYSTEM3_H
 
 #include "../app.h"
+#include "../shared/app_ipc.h"
 
-#define S3_PRI_CONSUMER		16	/* priority band 16-17 (TEAM.md) */
-#define S3_BATCH_SIZE		5	/* report to subsystem 4 every N samples */
-
-/* IF-01: send SAMPLE_MSG (subsystem2.h) here with tk_snd_mbx */
-IMPORT ID	mbx_samples;
-
-/* IF-04: statistics.  Read them ONLY while holding mtx_stats:
- *	tk_loc_mtx(mtx_stats, TMO_FEVR);  copy = app_stats;  tk_unl_mtx(mtx_stats);
- */
-typedef struct {
-	UW	received;	/* samples received so far */
-	INT	min;
-	INT	max;
-	W	sum;
-} APP_STATS;
-
-IMPORT ID		mtx_stats;
-IMPORT APP_STATS	app_stats;
-
-/* Private to subsystem 3 */
-IMPORT void	consumer_task(INT stacd, void *exinf);
+IMPORT ID
+    flg_barcode; /* IF-BC: controller arms/disarms, ISR signals EDGE_AVAIL */
 
 #endif /* SUBSYSTEM3_H */

@@ -1,27 +1,21 @@
-/*
- *	subsystem1.h
- *	Subsystem 1 -- LED heartbeat.  Student ID: <student ID>.
+/** @file subsystem1.h
+ *  @brief Subsystem 1 public interface: Wi-Fi / MQTT telemetry
+ * (TelemetryCommsTask, priority 8). Owner: Buddy 1 Xavier Lam Jun Jie 2500887.
  *
- *	This header is subsystem 1's PUBLIC interface: only what other
- *	subsystems are allowed to use.  Everything else stays LOCAL in the .c
- *	files.  Other subsystems include it as "../subsystem1/subsystem1.h".
+ *  STATUS: PLACEHOLDER - NOT IMPLEMENTED (delivered in Phase 6).
+ *  This placeholder only creates the kernel objects this subsystem owns
+ *  (MBF_TELEM_EVT (32 x 4-byte records, 256 B with headers, D-07)) so that the
+ * shared foundation links and the integration contract is fixed. It drives no
+ * pin and starts no task. Other subsystems include it as
+ * "../subsystem1/subsystem1.h".
  */
 
 #ifndef SUBSYSTEM1_H
 #define SUBSYSTEM1_H
 
 #include "../app.h"
+#include "../shared/app_ipc.h"
 
-#define S1_PRI_LED	12		/* priority band 12-13 (TEAM.md) */
-#define S1_LED_PIN	19		/* GP19: LED + 330R resistor to GND */
-#define S1_TICK_MS	250		/* LED toggles every tick */
-
-/* IF-05: the LED task's ID, so subsystem 4 may pause/resume it */
-IMPORT ID	tid_led;
-
-/* Private to subsystem 1, shared between its own .c files */
-IMPORT ID	cyc_led;
-IMPORT void	led_task(INT stacd, void *exinf);
-IMPORT void	led_cyclic_handler(void *exinf);
+IMPORT ID mbf_telem_evt; /* IF-TE: app_ipc_telem_post() writes here */
 
 #endif /* SUBSYSTEM1_H */

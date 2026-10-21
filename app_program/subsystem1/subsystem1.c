@@ -1,35 +1,34 @@
-/*
- *	subsystem1.c
- *	Subsystem 1 -- LED heartbeat: creates its objects and starts its task.
- *
- *	APIs shown: tk_cre_cyc, tk_sta_cyc
+/** @file subsystem1.c
+ *  @brief Subsystem 1 placeholder: creates its kernel objects only.
+ *         STATUS: NOT IMPLEMENTED (Phase 6). Motor-safe: no pin written.
  */
 
 #include "subsystem1.h"
 
-EXPORT ID	tid_led;	/* IF-05, see subsystem1.h */
-EXPORT ID	cyc_led;
+EXPORT ID mbf_telem_evt = 0;
 
-EXPORT ER subsystem1_init(void)
+EXPORT ER
+subsystem1_init (void)
 {
-	T_CCYC	ccyc = {0};
+    T_CMBF cmbf;
 
-	/* Cyclic handler: once started, the kernel calls led_cyclic_handler
-	   every S1_TICK_MS.  Without TA_STA it is created stopped; it is
-	   started in subsystem1_start(), once the task it wakes exists. */
-	ccyc.cycatr = TA_HLNG;
-	ccyc.cychdr = (FP)led_cyclic_handler;
-	ccyc.cyctim = S1_TICK_MS;	/* period, ms */
-	ccyc.cycphs = S1_TICK_MS;	/* delay before the first call, ms */
-	cyc_led = tk_cre_cyc(&ccyc);
-	return (cyc_led < E_OK) ? cyc_led : E_OK;
+    cmbf.exinf    = NULL;
+    cmbf.mbfatr   = TA_TFIFO;
+    cmbf.bufsz    = (SZ) APP_MBF_TELEM_BYTES;
+    cmbf.maxmsz   = (INT) APP_TE_RECORD_BYTES;
+    cmbf.bufptr   = NULL;
+    mbf_telem_evt = tk_cre_mbf(&cmbf);
+    if (mbf_telem_evt < E_OK)
+    {
+        return mbf_telem_evt;
+    }
+    app_ipc_register_telem_mbf((int32_t) mbf_telem_evt);
+    return E_OK;
 }
 
-EXPORT ER subsystem1_start(void)
+EXPORT ER
+subsystem1_start (void)
 {
-	tid_led = app_start_task(led_task, S1_PRI_LED, 0, "led_task");
-	if (tid_led < E_OK) {
-		return tid_led;
-	}
-	return tk_sta_cyc(cyc_led);	/* start the cyclic handler now */
+    /* PLACEHOLDER: no task yet. The real task is created in Phase 6. */
+    return E_OK;
 }
