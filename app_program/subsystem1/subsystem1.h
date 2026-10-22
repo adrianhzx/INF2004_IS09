@@ -47,6 +47,7 @@ typedef struct
     uint32_t last_reject;          /* app_cmd_verdict_t of the last reject */
     uint32_t conn_state;           /* app_conn_state_t */
     uint32_t online_entries;       /* number of ONLINE entries */
+    uint32_t max_gap_us;           /* longest time between loop starts */
 } s1_stats_t;
 
 void subsystem1_stats (s1_stats_t * p_stats);

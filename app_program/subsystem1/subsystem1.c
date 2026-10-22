@@ -44,13 +44,16 @@ static s1_stats_t       g_s1_stats;
 static s1_cmd_ctx_t     g_s1_cmd;
 static s1_cadence_t     g_s1_snap_cad;
 static s1_cadence_t     g_s1_hb_cad;
-static app_conn_state_t g_s1_conn        = APP_CONN_WIFI_CONNECTING;
-static bool             g_s1_conn_valid  = false;
-static uint16_t         g_s1_faults_have = 0U;
-static uint8_t          g_s1_snap_seq    = 0U;
-static uint8_t          g_s1_hb_seq      = 0U;
-static uint8_t          g_s1_obs_seq     = 0U;
-static uint8_t          g_s1_obs_last    = APP_PACK_BYTE_MASK;
+static app_conn_state_t g_s1_conn           = APP_CONN_WIFI_CONNECTING;
+static bool             g_s1_conn_valid     = false;
+static uint16_t         g_s1_faults_have    = 0U;
+static uint8_t          g_s1_snap_seq       = 0U;
+static uint8_t          g_s1_hb_seq         = 0U;
+static uint8_t          g_s1_obs_seq        = 0U;
+static uint8_t          g_s1_obs_last       = APP_PACK_BYTE_MASK;
+static bool             g_s1_report_pending = false;
+static uint32_t         g_s1_last_loop_us   = 0U;
+static bool             g_s1_have_loop      = false;
 
 #if APP_TEST
 static volatile uint8_t g_s1_link_mode = (uint8_t) S1_LINK_REAL;
@@ -143,19 +146,21 @@ static void
 s1_on_conn_change (app_conn_state_t state, uint32_t now_ms)
 {
     tm_printf((UB *) "telem: %s\n", (UB *) g_s1_conn_names[state & 3U]);
-    app_ipc_telem_post(APP_TEV_CONN_STATE, APP_SRC_COMMS, (uint16_t) state);
     if (APP_CONN_ONLINE == state)
     {
         g_s1_stats.online_entries++;
         s1_cmd_on_online(&g_s1_cmd, now_ms);
         s1_cadence_start(&g_s1_snap_cad, now_ms, S1_SNAP_PERIOD_MS);
         s1_cadence_start(&g_s1_hb_cad, now_ms, S1_HB_PERIOD_MS);
-        /* Week 6 6.4: the drop count is reported after reconnection. */
-        app_ipc_telem_post(APP_TEV_DROPPED, APP_SRC_COMMS,
-                           (uint16_t) app_ipc_telem_dropped());
+        /* Week 6 6.4: the drop count is reported after reconnection. It is
+           NOT posted into MBF_TELEM_EVT: after an outage that buffer is
+           usually full, so the report itself would be dropped (found by
+           S1-U07, 22 Oct). It goes straight to MBF_TELEM_OUT instead. */
+        g_s1_report_pending = true;
     }
     else
     {
+        app_ipc_telem_post(APP_TEV_CONN_STATE, APP_SRC_COMMS, (uint16_t) state);
         s1_cmd_on_offline(&g_s1_cmd);
     }
 }
@@ -181,8 +186,9 @@ s1_update_faults (app_conn_state_t state)
 /* ---- outbound
  * ---------------------------------------------------------------- */
 
+/** True if MBF_TELEM_OUT can take `count` more requests of msg_len bytes. */
 static bool
-s1_out_room (uint32_t msg_len)
+s1_out_room_n (uint32_t count, uint32_t msg_len)
 {
     T_RMBF rmbf;
 
@@ -190,7 +196,13 @@ s1_out_room (uint32_t msg_len)
     {
         return false;
     }
-    return (uint32_t) rmbf.frbufsz >= APP_MBF_BYTES(1U, msg_len);
+    return (uint32_t) rmbf.frbufsz >= APP_MBF_BYTES(count, msg_len);
+}
+
+static bool
+s1_out_room (uint32_t msg_len)
+{
+    return s1_out_room_n(1U, msg_len);
 }
 
 static bool
@@ -227,6 +239,39 @@ s1_read_obstacle (uint32_t * p_w0, uint32_t * p_w1)
     *p_w1 = g_obstacle_profile[1];
     (void) tk_unl_mtx(mtx_obstacle);
     return true;
+}
+
+/** Queue one event record straight to MBF_TELEM_OUT (bypassing
+ *  MBF_TELEM_EVT, which may be full). */
+static bool
+s1_send_event_direct (app_telem_event_t type, uint16_t payload)
+{
+    uint8_t        frame[APP_EVENT_FRAME_BYTES];
+    uint8_t const  stamp = (uint8_t) ((app_hw_time_us() / 1000U) & 0xFFU);
+    uint32_t const record =
+        app_ipc_telem_pack(type, APP_SRC_COMMS, payload, stamp);
+
+    app_event_frame_encode(record, frame);
+    return s1_out_send(S1_TOPIC_EVT, frame, APP_EVENT_FRAME_BYTES);
+}
+
+/** ONLINE entry reports: CONN_STATE then DROPPED, retried every loop until
+ *  both are queued. */
+static void
+s1_send_online_reports (void)
+{
+    if (!g_s1_report_pending)
+    {
+        return;
+    }
+    if (!s1_out_room_n(2U, 1U + S1_TOPIC_MAX_BYTES + APP_EVENT_FRAME_BYTES))
+    {
+        return; /* both or neither: try again next loop */
+    }
+    (void) s1_send_event_direct(APP_TEV_CONN_STATE, (uint16_t) APP_CONN_ONLINE);
+    (void) s1_send_event_direct(APP_TEV_DROPPED,
+                                (uint16_t) app_ipc_telem_dropped());
+    g_s1_report_pending = false;
 }
 
 static void
@@ -392,6 +437,20 @@ telemetry_comms_task (INT stacd, void * p_exinf)
         app_conn_state_t state   = s1_link_state(&backoff);
         uint32_t         work_us = 0U;
 
+        /* Longest gap between loop starts: how long higher-priority work
+           (including the kernel Wi-Fi task at priority 4) kept this task
+           off the CPU. A15 evidence. */
+        if (g_s1_have_loop)
+        {
+            uint32_t const gap = (uint32_t) (t0 - g_s1_last_loop_us);
+            if (gap > g_s1_stats.max_gap_us)
+            {
+                g_s1_stats.max_gap_us = gap;
+            }
+        }
+        g_s1_last_loop_us = t0;
+        g_s1_have_loop    = true;
+
         if ((!g_s1_conn_valid) || (state != g_s1_conn))
         {
             g_s1_conn       = state;
@@ -406,6 +465,7 @@ telemetry_comms_task (INT stacd, void * p_exinf)
 
         if (APP_CONN_ONLINE == state)
         {
+            s1_send_online_reports();
             if (s1_cadence_due(&g_s1_snap_cad, now_ms))
             {
                 s1_publish_snapshot();

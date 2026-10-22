@@ -18,6 +18,15 @@
 #include "../shared/app_safety.h"
 #include "../test_report.h"
 
+#if defined(TM_WIFI_CYW43) && TM_WIFI_CYW43
+#include "cyw43_utk.h"
+#define S1T_HAVE_WIFI 1
+#else
+#define S1T_HAVE_WIFI 0
+#endif
+
+#define S1T_RADIO_WAIT_MS 10000U
+
 #define S1T_MARK_BASE 0xA500U /* payload marker for S1-U09 events */
 #define S1T_MARK_COUNT 10U
 
@@ -168,6 +177,30 @@ s1t_conn (void)
                                            APP_CW_STATE_BITS);
 }
 
+/** Wait (bounded) for the kernel Wi-Fi task to finish bringing the radio up,
+ *  so S1-U02/U03 measure this task and not the one-off radio start-up. */
+static void
+s1t_wait_radio (void)
+{
+#if S1T_HAVE_WIFI
+    T_CYW43_UTK_STATUS st;
+    uint32_t const     t0 = app_ipc_ms();
+
+    do
+    {
+        cyw43_utk_get_status(&st);
+        if (0U != st.init_complete)
+        {
+            break;
+        }
+        (void) tk_dly_tsk(50);
+    } while ((uint32_t) (app_ipc_ms() - t0) < S1T_RADIO_WAIT_MS);
+    tm_printf((UB *) "[TEST] S1 INFO  radio init %s after %u ms\n",
+              (0U != st.init_complete) ? "complete" : "NOT complete",
+              (unsigned) (app_ipc_ms() - t0));
+#endif
+}
+
 EXPORT void
 subsystem1_test (void)
 {
@@ -196,9 +229,17 @@ subsystem1_test (void)
                "MBF_TELEM_EVT/OUT/IN created (4 / 43 / 8 B messages)");
 
     /* S1-U02: the task runs its 20 ms loop (about 50 per second). */
+    s1t_wait_radio();
     subsystem1_stats(&st0);
+    tm_printf((UB *) "[TEST] S1-U02 INFO  longest gap between loops since "
+                     "boot = %u us\n",
+              (unsigned) st0.max_gap_us);
     (void) tk_dly_tsk(1000);
     subsystem1_stats(&st1);
+    tm_printf((UB *) "[TEST] S1-U02 INFO  longest gap during the test "
+                     "window = %u us%s\n",
+              (unsigned) st1.max_gap_us,
+              (st1.max_gap_us > st0.max_gap_us) ? "" : " (no new maximum)");
     /* tk_dly_tsk(20) on a 10 ms tick sleeps 20-30 ms (the kernel adds one
        tick so it never wakes early), so the loop runs 33-50 times a second.
        Publishing rates do not depend on it: they use time deadlines. */
@@ -215,6 +256,13 @@ subsystem1_test (void)
     subsystem1_stats(&st0);
     (void) tk_dly_tsk(1000);
     subsystem1_stats(&st1);
+    tm_printf(
+        (UB *) "[TEST] S1-U03 INFO  conn %u, faults 0x%04x, snap %u->%u, "
+               "evt %u->%u, loops %u->%u\n",
+        (unsigned) s1t_conn(), (unsigned) g_fault_mask,
+        (unsigned) st0.sent[S1_TOPIC_SNAP], (unsigned) st1.sent[S1_TOPIC_SNAP],
+        (unsigned) st0.sent[S1_TOPIC_EVT], (unsigned) st1.sent[S1_TOPIC_EVT],
+        (unsigned) st0.loops, (unsigned) st1.loops);
     TEST_CHECK("S1-U03",
                (APP_CONN_WIFI_CONNECTING == s1t_conn()) &&
                    (0U != (g_fault_mask & APP_FAULT_WIFI_LOSS)) &&
@@ -278,6 +326,12 @@ subsystem1_test (void)
                    (seen.last_snap.motion_class == 2U),
                "snapshot carries the blackboard values (line, IMU fields)");
 
+    tm_printf((UB *) "[TEST] S1-U07 INFO  hb %u (decoded %u, conn %u), evt %u, "
+                     "drop report %s\n",
+              (unsigned) seen.n[S1_TOPIC_HB], (unsigned) seen.have_hb,
+              (unsigned) seen.last_hb.conn_state,
+              (unsigned) seen.n[S1_TOPIC_EVT],
+              (0U != seen.dropped_evt) ? "seen" : "MISSING");
     TEST_CHECK("S1-U07",
                seen.have_hb && (seen.n[S1_TOPIC_HB] >= 2U) &&
                    (seen.n[S1_TOPIC_HB] <= 4U) &&
