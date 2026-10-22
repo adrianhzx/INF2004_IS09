@@ -1,0 +1,76 @@
+# Subsystem 1 + shared self-test, run 2. Build: 3f3cdd6, make SMP=0 NET=lwip MQTT=1 TEST=1
+# Board: Pico W on Robo Pico, USB console COM9, broker on laptop 10.143.10.211, 2026-10-22.
+# Complete console output, copied verbatim (the TEST image waits for the terminal).
+=== IS09 autonomous car, micro T-Kernel on Pico W (spec 0x6300, product 0x0003) ===
+single-core build (demo profile)
+hw self-check: 0x7 (timer 1, pwm 1, io 1)
+all subsystems started; motion armed=0, echo verified=0
+[TEST] === test run start ===
+[TEST] S1-U01 PASS  MBF_TELEM_EVT/OUT/IN created (4 / 43 / 8 B messages)
+telem: WIFI_CONNECTING
+wifi: joining "Xavier's phone" ...
+wifi: link status -> joined AP, waiting for IP (1)
+[TEST] S1 INFO  radio init complete after 650 ms
+[TEST] S1-U02 INFO  longest gap between loops since boot = 30427 us
+[TEST] S1-U02 INFO  longest gap during the test window = 30427 us (no new maximum)
+[TEST] S1-U02 INFO  34 loops in 1 s
+[TEST] S1-U02 PASS  TelemetryCommsTask loop runs 33-51 times per second
+[TEST] S1-U03 INFO  conn 0, faults 0x0010, snap 0->0, evt 0->0, loops 57->90
+[TEST] S1-U03 PASS  offline: WIFI_CONNECTING, WIFI_LOSS set, no publish for 1 s
+[TEST] S1-U04 INFO  longest post = 37 us
+[TEST] S1-U04 PASS  40 posts while offline: each <= 50 us, drops counted
+telem: ONLINE
+wifi: link status -> joined AP, no IP yet (2)
+wifi: link up, ip=10.143.10.118
+[TEST] S1-U05 PASS  online: 10-12 snapshots in 2.1 s (200 ms), seq unbroken, all decode
+[TEST] S1-U05 INFO  snap 11, hb 3, evt 34, obs 1
+[TEST] S1-U06 PASS  snapshot carries the blackboard values (line, IMU fields)
+[TEST] S1-U07 INFO  hb 3 (decoded 1, conn 2), evt 34, drop report seen
+[TEST] S1-U07 PASS  heartbeat 1 s (2-4 in 2.1 s), backlog drained, drop count reported
+mqtt: connected to 10.143.10.211
+mqtt: subscribed to mtk3smp-pico/heartbeat
+[TEST] S1-U08 PASS  bad CRC, bad length, START in guard, replay rejected; valid START accepted once
+[TEST] S1-U09 PASS  bridge stalled 500 ms: loop runs, OUT full counted, all 10 events delivered after
+[TEST] S1-U10 INFO  cyclic 100 per s, longest telemetry loop 462 us
+[TEST] S1-U10 PASS  cyclic 100 +-2 per s under telemetry load; loop body <= 2 ms
+[TEST] subsystem1 SUMMARY 10 passed, 0 failed
+[TEST] S2-U00 PASS  placeholder: subsystem 2 not implemented yet
+[TEST] subsystem2 SUMMARY 1 passed, 0 failed
+[TEST] S3-U00 PASS  placeholder: subsystem 3 not implemented yet
+[TEST] subsystem3 SUMMARY 1 passed, 0 failed
+[TEST] S4-U00 PASS  placeholder: subsystem 4 not implemented yet
+[TEST] subsystem4 SUMMARY 1 passed, 0 failed
+[TEST] S5-U00 PASS  placeholder: subsystem 5 not implemented yet
+[TEST] subsystem5 SUMMARY 1 passed, 0 failed
+telem: MQTT_CONNECTING
+[TEST] SH-U01 PASS  cyclic handler 100 +-5 per second
+[TEST] SH-U02 PASS  1 MHz timer advances >= 9 ms over a 10 ms delay
+[TEST] SH-U03a PASS  test flag created
+[TEST] SH-U03b PASS  dispatcher attach on spare pin
+[TEST] SH-U03c PASS  second attach to the same pin is refused
+[TEST] SH-U03d PASS  flag set from GPIO ISR received within 100 ms
+[TEST] SH-U04a PASS  no lost fault bit over 10000 ISR/task RMW
+[TEST] SH-U04b PASS  ISR ran once per iteration
+[TEST] SH-U04c INFO  longest helper window = 1 us; incl. test force/timer setup = 3 us
+[TEST] SH-U04c PASS  helper masked window <= 5 us (design: ~10 cycles, SRAM)
+[TEST] SH-U05a PASS  LineState -100/+100 round trip, upper bits clear
+[TEST] SH-U05b PASS  MotionStatus signed distance min + flags round trip
+[TEST] SH-U06 PASS  100 event posts without waiting (< 10 ms)
+[TEST] SH-U07 PASS  latch clear refused from a non-controller task
+[TEST] SH-U08a PASS  STOP_LATCH set by ISR request
+[TEST] SH-U08b PASS  first stop cause wins
+[TEST] SH-U08c PASS  controller in S7 within 50 ms of EVT_SAFE_STOP
+[TEST] shared SUMMARY 16 passed, 0 failed
+[TEST] === test run end ===
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 0"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 1"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 2"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 3"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 4"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 5"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 6"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 7"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 8"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 9"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 10"
+---- Closed the serial port COM9 ----

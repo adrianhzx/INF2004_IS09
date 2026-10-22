@@ -15,14 +15,25 @@ frame), H-SF-01..17 (safety contract).
 
 | ID | Check | Result | Log |
 |---|---|---|---|
-| SH-U01 | cyclic handler 100 +-5 per second | NOT RUN | |
-| SH-U02 | 1 MHz timer advances | NOT RUN | |
-| SH-U03a-d | tk_set_flg from a forced GPIO IRQ reaches a task; double attach refused | NOT RUN | |
-| SH-U04a-c | 10 000 ISR/task RMW iterations, no lost bit, masked window <= 5 us | NOT RUN (SMP=0 only) | |
-| SH-U05a-b | packed round trips on the ARM toolchain | NOT RUN | |
-| SH-U06 | 100 event posts without waiting | NOT RUN | |
-| SH-U07 | latch clear refused from a foreign task | NOT RUN | |
-| SH-U08a-c | SafeStop from ISR: latch, first cause, controller in S7 <= 50 ms (leaves S7 latched) | NOT RUN | |
+| SH-U01 | cyclic handler 100 +-5 per second | PASS (runs A-C) | see runs below |
+| SH-U02 | 1 MHz timer advances | PASS (runs B, C) | see runs below |
+| SH-U03a-d | tk_set_flg from a forced GPIO IRQ reaches a task; double attach refused | PASS (runs B, C) | see runs below |
+| SH-U04a-c | 10 000 ISR/task RMW iterations, no lost bit, masked window <= 5 us | U04c FAIL in run A; PASS after the SRAM fix (2 us run B, 1 us run C) | see runs below |
+| SH-U05a-b | packed round trips on the ARM toolchain | PASS (runs B, C) | see runs below |
+| SH-U06 | 100 event posts without waiting | PASS (runs B, C) | see runs below |
+| SH-U07 | latch clear refused from a foreign task | PASS (runs B, C) | see runs below |
+| SH-U08a-c | SafeStop from ISR: latch, first cause, controller in S7 <= 50 ms (leaves S7 latched) | PASS (runs A-C) | see runs below |
 
 Procedure: flash the `_test.uf2`, open `screen /dev/ttyACM0 115200`, save the
 console to `testing/shared/logs/<date>_test.txt`, grep `[TEST]`.
+
+### On-target runs (Pico W on Robo Pico, `SMP=0 NET=lwip MQTT=1 TEST=1`, tester Xavier)
+
+Add a new row for every run. Never edit or delete old rows.
+
+| Run | Date | Commit | Result | Log | Notes |
+|---|---|---|---|---|---|
+| A | 2026-10-22 | `07fb89b` | FAIL 15/1 (SH-U04c) | `logs/2026-10-22_shared_runA_partial.txt` (partial) | Masked window over 5 us: it timed test set-up too, and the helpers ran from XIP flash, where a cache miss stalls the CPU with interrupts masked. INFO value not captured. |
+| A2 | 2026-10-22 | `07fb89b` + SRAM patch (= `0aafbaa`) | PASS 16/0 | not saved | Reported by Xavier; console not kept. |
+| B | 2026-10-22 | `bbcaa13` | PASS 16/0 | `../subsystem1/logs/2026-10-22_test_run1.txt` | SH-U04c helper window 2 us (set-up incl. 5 us). |
+| C | 2026-10-22 | `3f3cdd6` | PASS 16/0 | `../subsystem1/logs/2026-10-22_test_run2.txt` | SH-U04c helper window 1 us (set-up incl. 3 us). Boot banner `hw self-check: 0x7 (timer 1, pwm 1, io 1)`. |

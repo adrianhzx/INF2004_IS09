@@ -130,12 +130,12 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | Phase | Status | Commit |
 |---|---|---|
 | 0 Audit | DONE (this file, sections 0-4) | - |
-| 1 Shared foundation | DONE (host-verified, target-built, bench NOT RUN) | see section 6 |
+| 1 Shared foundation | DONE: host-verified; on-target SH-U01..U08 PASS 16/0 on 22 Oct after the SH-U04c SRAM fix (`0aafbaa`); HV bench items NOT RUN | testing/shared/TEST_LOG.md |
 | 2 Motion | NOT STARTED | |
 | 3 Line + Barcode | NOT STARTED | |
 | 4 IMU | NOT STARTED | |
 | 5 Obstacle | NOT STARTED | |
-| 6 Wi-Fi/MQTT | IN PROGRESS: TelemetryCommsTask + host tests (62 PASS) + on-target tests written, target-built; on-target and bench NOT RUN; radio bridge in `mqtt_utk.c` written but held for team/instructor agreement (D-10) | see testing/subsystem1/TEST_LOG.md |
+| 6 Wi-Fi/MQTT | IN PROGRESS: TelemetryCommsTask + host tests (62 PASS); on-target S1-U01..U10 PASS 10/0 on 22 Oct (`3f3cdd6`). Radio bridge in `mqtt_utk.c` held for team/instructor agreement (D-10), NOT in this branch: bench B1 on it delivered every frame at the right rate but stalled silently after 49 s; fix written, not yet tested | testing/subsystem1/TEST_LOG.md |
 | 7 Integration | NOT STARTED | |
 | 8 Evidence | NOT STARTED | |
 
