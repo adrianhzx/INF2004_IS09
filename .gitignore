@@ -27,3 +27,5 @@ config/wifi_secrets.h
 
 # host test binary and generated vectors
 testing/host/test_shared
+testing/subsystem1/host/test_s1
+tools/__pycache__/

@@ -135,7 +135,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 3 Line + Barcode | NOT STARTED | |
 | 4 IMU | NOT STARTED | |
 | 5 Obstacle | NOT STARTED | |
-| 6 Wi-Fi/MQTT | NOT STARTED | |
+| 6 Wi-Fi/MQTT | IN PROGRESS: TelemetryCommsTask + host tests (62 PASS) + on-target tests written, target-built; on-target and bench NOT RUN; radio bridge in `mqtt_utk.c` written but held for team/instructor agreement (D-10) | see testing/subsystem1/TEST_LOG.md |
 | 7 Integration | NOT STARTED | |
 | 8 Evidence | NOT STARTED | |
 
