@@ -14,4 +14,13 @@
 #include <tm/tmonitor.h>
 #endif
 
+/* Code that runs with interrupts masked is placed in SRAM (.data is copied
+   from flash to RAM at reset by the pico_rp2040 linker script), so a masked
+   window never stalls on an XIP flash cache miss (SH-U04c, Version B R1). */
+#ifdef APP_HOST_TEST
+#define APP_RAMFUNC
+#else
+#define APP_RAMFUNC __attribute__((section(".data.app_ramfunc"), noinline))
+#endif
+
 #endif /* APP_PORT_H */

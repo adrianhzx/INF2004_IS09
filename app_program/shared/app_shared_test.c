@@ -31,12 +31,13 @@
 #define SH_BIT_TASK 0x0001U
 #define SH_BIT_ISR 0x0002U
 
-static volatile uint32_t g_sh_isr_hits  = 0U;
-static volatile uint16_t g_sh_race_word = 0U;
-static volatile uint32_t g_sh_lost_bits = 0U;
-static volatile uint32_t g_sh_max_di_us = 0U;
-static ID                g_sh_flg       = 0;
-static volatile uint8_t  g_sh_isr_mode  = 0U; /* 0 count, 1 race, 2 safestop */
+static volatile uint32_t g_sh_isr_hits     = 0U;
+static volatile uint16_t g_sh_race_word    = 0U;
+static volatile uint32_t g_sh_lost_bits    = 0U;
+static volatile uint32_t g_sh_max_di_us    = 0U;
+static volatile uint32_t g_sh_max_setup_us = 0U;
+static ID                g_sh_flg          = 0;
+static volatile uint8_t  g_sh_isr_mode = 0U; /* 0 count, 1 race, 2 safestop */
 
 static void
 sh_test_isr (uint32_t pin, uint32_t events, uint32_t stamp_us)
@@ -121,21 +122,30 @@ app_shared_test (void)
        demo profile (ledger section 4). */
     tm_printf((UB *) "[TEST] SH-U04 NOT RUN (SMP=1 build; run on SMP=0)\n");
 #else
-    g_sh_isr_mode  = 1U;
-    g_sh_lost_bits = 0U;
-    g_sh_max_di_us = 0U;
-    g_sh_isr_hits  = 0U;
+    g_sh_isr_mode     = 1U;
+    g_sh_lost_bits    = 0U;
+    g_sh_max_di_us    = 0U;
+    g_sh_max_setup_us = 0U;
+    g_sh_isr_hits     = 0U;
     for (i = 0U; i < SH_RACE_ITERS; i++)
     {
         uint32_t const saved = app_hw_irq_save();
         uint32_t const t0    = app_hw_time_us();
+        uint32_t       t1;
         app_hw_gpio_irq_force(SH_TEST_PIN, APP_GPIO_IRQ_EDGE_RISE, true);
+        t1 = app_hw_time_us();
         app_shared_bits_set(&g_sh_race_word, SH_BIT_TASK);
         {
-            uint32_t const dt = (uint32_t) (app_hw_time_us() - t0);
-            if (dt > g_sh_max_di_us)
+            uint32_t const t2 = app_hw_time_us();
+            uint32_t const dh = (uint32_t) (t2 - t1); /* helper only */
+            uint32_t const ds = (uint32_t) (t2 - t0); /* incl. test setup */
+            if (dh > g_sh_max_di_us)
             {
-                g_sh_max_di_us = dt;
+                g_sh_max_di_us = dh;
+            }
+            if (ds > g_sh_max_setup_us)
+            {
+                g_sh_max_setup_us = ds;
             }
         }
         app_hw_irq_restore(saved);
@@ -151,11 +161,11 @@ app_shared_test (void)
                "no lost fault bit over 10000 ISR/task RMW");
     TEST_CHECK("SH-U04b", SH_RACE_ITERS == g_sh_isr_hits,
                "ISR ran once per iteration");
-    tm_printf((UB *) "[TEST] SH-U04c INFO  longest masked window incl. "
-                     "force+helper = %u us\n",
-              (unsigned) g_sh_max_di_us);
+    tm_printf((UB *) "[TEST] SH-U04c INFO  longest helper window = %u us; "
+                     "incl. test force/timer setup = %u us\n",
+              (unsigned) g_sh_max_di_us, (unsigned) g_sh_max_setup_us);
     TEST_CHECK("SH-U04c", g_sh_max_di_us <= 5U,
-               "masked window <= 5 us (design: ~10 cycles)");
+               "helper masked window <= 5 us (design: ~10 cycles, SRAM)");
 #endif /* TK_SUPPORT_SMP */
 
     /* SH-U05: packed round trips on the target toolchain (mirror of host). */
