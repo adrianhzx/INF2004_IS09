@@ -26,5 +26,6 @@ void mqtt_utk_bridge_attach(int32_t out_mbf, int32_t in_mbf,
 uint32_t mqtt_utk_bridge_connected(void);
 uint32_t mqtt_utk_bridge_backoff_s(void);
 uint32_t mqtt_utk_bridge_pub_fail(void);
+uint32_t mqtt_utk_bridge_stalls(void);
 
 #endif /* MQTT_UTK_H */

@@ -18,6 +18,7 @@
 #include "lwip/apps/mqtt.h"
 #include "lwip/ip_addr.h"
 #include "lwip/timeouts.h"
+#include "lwip/sys.h"
 #include "wifi_secrets.h"
 #include "mqtt_utk.h"
 #include <tm/tmonitor.h>
@@ -25,7 +26,11 @@
 #include <string.h>
 
 #define MQTT_UTK_HEARTBEAT_MS   5000
-#define MQTT_UTK_KEEPALIVE_S    60
+/* 10 s keep-alive: lwIP drops a session that has heard nothing from the
+ * broker (no data, no TCP acknowledgement) for 1.5 x keep-alive = 15 s.
+ * With 60 s that took 90 s, during which the car believed it was ONLINE
+ * (bench B1, 22 Oct). */
+#define MQTT_UTK_KEEPALIVE_S    10
 
 /* Reconnect back-off: 1, 2, 4, 8, then 10 s (Week 6 NFR18 cap of 10 s). */
 #define MQTT_UTK_RETRY_FIRST_MS 1000
@@ -58,12 +63,23 @@ extern int32_t tk_rcv_mbf(int32_t mbfid, void *msg, int32_t tmout);
 #define MQTT_UTK_BRIDGE_TOPIC_MAX	48
 #define MQTT_UTK_BRIDGE_CMD_MAX		8
 
+/* Week 6 Statechart 4: MQTT_CONNECTING times out after 5 s, and publish
+ * errors lead to BACKOFF. A QoS 0 publish holds one of lwIP's
+ * MQTT_REQ_MAX_IN_FLIGHT (4) request slots until its TCP acknowledgement
+ * arrives, so if acknowledgements stop, publishing fails within ~1 s;
+ * 5 s of nothing but failures is treated as a lost link. */
+#define MQTT_UTK_CONNECT_TIMEOUT_MS	5000
+#define MQTT_UTK_BRIDGE_STALL_MS	5000
+
 static volatile int32_t		br_out;
 static volatile int32_t		br_in;
 static const char * volatile	br_cmd_topic;
 static volatile uint32_t	br_connected;
 static volatile uint32_t	br_backoff_s;
 static volatile uint32_t	br_pub_fail;
+static volatile uint32_t	br_stalls;
+static u8_t			br_failing;
+static u32_t			br_fail_since;
 static u8_t			br_subscribed;
 static u8_t			br_rx_is_cmd;
 static uint8_t			br_rx[MQTT_UTK_BRIDGE_CMD_MAX];
@@ -185,8 +201,44 @@ static void heartbeat_timeout(void *arg)
 
 	/* Re-arms itself every call -- mqtt.c's connection callback (below)
 	 * only starts this chain once, on the transition into MQTT_CONNECT_
-	 * ACCEPTED, so there is exactly one heartbeat chain alive at a time. */
-	sys_timeout(MQTT_UTK_HEARTBEAT_MS, heartbeat_timeout, NULL);
+	 * ACCEPTED, so there is exactly one heartbeat chain alive at a time.
+	 * Once an application attaches the demo heartbeat ends, freeing its
+	 * MEMP_SYS_TIMEOUT slot (lwipopts.h budgets 4 for this file + mqtt.c). */
+	if(br_out == 0) {
+		sys_timeout(MQTT_UTK_HEARTBEAT_MS, heartbeat_timeout, NULL);
+	}
+}
+
+static void retry_timeout(void *arg);
+static void connect_timeout(void *arg);
+
+/* Every way of losing the session ends here: back-off, then reconnect
+ * (1, 2, 4, 8, 10 s, NFR18). The 2 ms poll loop's mqtt_utk_start() is held
+ * off with `connecting` until the back-off expires. */
+static void link_lost(int status, const char *why)
+{
+	br_connected = 0;
+	br_failing = 0;
+	br_backoff_s = retry_ms / 1000;
+	tm_printf((UB*)"mqtt: %s (status %d), retrying in %ds\n", why,
+		  status, (int)(retry_ms / 1000));
+	connecting = 1;
+	sys_untimeout(connect_timeout, NULL);
+	sys_untimeout(retry_timeout, NULL);
+	sys_timeout(retry_ms, retry_timeout, NULL);
+	retry_ms = (retry_ms * 2 > MQTT_UTK_RETRY_MAX_MS)?
+		   MQTT_UTK_RETRY_MAX_MS: retry_ms * 2;
+}
+
+/* MQTT_CONNECTING deadline (Statechart 4: 5 s). mqtt_disconnect() does not
+ * call connection_cb, so the loss is handled here directly. */
+static void connect_timeout(void *arg)
+{
+	(void)arg;
+	if(client != NULL && !mqtt_client_is_connected(client)) {
+		mqtt_disconnect(client);
+		link_lost(-2, "connect timed out after 5 s");
+	}
 }
 
 static void bridge_subscribe_cb(void *arg, err_t result)
@@ -239,8 +291,20 @@ static void bridge_poll(void *arg)
 			if(mqtt_publish(client, topic, &msg[1 + tlen],
 					(u16_t)(n - 1 - (int32_t)tlen),
 					0 /* qos */, 0 /* retain */, NULL,
-					NULL) != ERR_OK) {
-				br_pub_fail++;	/* request consumed: counted */
+					NULL) == ERR_OK) {
+				br_failing = 0;
+				continue;
+			}
+			br_pub_fail++;	/* request consumed: counted */
+			if(!br_failing) {
+				br_failing = 1;
+				br_fail_since = sys_now();
+			} else if((u32_t)(sys_now() - br_fail_since) >=
+				  MQTT_UTK_BRIDGE_STALL_MS) {
+				br_stalls++;
+				mqtt_disconnect(client);
+				link_lost(-1, "publishing stalled for 5 s, link lost");
+				break;
 			}
 		}
 	}
@@ -267,6 +331,8 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 		 * is allowed to reconnect. Leaving it set would wedge the client
 		 * permanently after the first disconnect. */
 		connecting = 0;
+		sys_untimeout(connect_timeout, NULL);
+		br_failing = 0;
 		retry_ms = MQTT_UTK_RETRY_FIRST_MS;
 		br_backoff_s = 0;
 		br_subscribed = 0;	/* bridge_poll subscribes again */
@@ -300,23 +366,8 @@ static void connection_cb(mqtt_client_t *c, void *arg, mqtt_connection_status_t 
 		}
 		sys_timeout(MQTT_UTK_BRIDGE_POLL_MS, bridge_poll, NULL);
 	} else {
-		/* mqtt_client_connect() reconnects on its own for a dropped
-		 * keepalive; a rejected/never-established connection does not
-		 * retry itself, so do that here -- on a delay, so a broker
-		 * that keeps rejecting (e.g. bad client ID) can't turn this
-		 * into a tight reconnect loop. */
-		br_connected = 0;
-		br_backoff_s = retry_ms / 1000;
-		tm_printf((UB*)"mqtt: connection status %d, retrying in %ds\n",
-			  (int)status, (int)(retry_ms / 1000));
-		/* Hold off the 2 ms poll loop's mqtt_utk_start() until the
-		 * back-off expires; otherwise a dropped session reconnects
-		 * immediately and the back-off never applies. */
-		connecting = 1;
-		sys_untimeout(retry_timeout, NULL);
-		sys_timeout(retry_ms, retry_timeout, NULL);
-		retry_ms = (retry_ms * 2 > MQTT_UTK_RETRY_MAX_MS)?
-			   MQTT_UTK_RETRY_MAX_MS: retry_ms * 2;
+		/* A rejected or dropped session does not retry by itself. */
+		link_lost((int)status, "connection lost or refused");
 	}
 }
 
@@ -352,6 +403,9 @@ void mqtt_utk_start(void)
 	if(err != ERR_OK) {
 		tm_printf((UB*)"mqtt: mqtt_client_connect() failed, err=%d\n", (int)err);
 		connecting = 0;
+	} else {
+		sys_untimeout(connect_timeout, NULL);
+		sys_timeout(MQTT_UTK_CONNECT_TIMEOUT_MS, connect_timeout, NULL);
 	}
 }
 
@@ -379,4 +433,9 @@ uint32_t mqtt_utk_bridge_backoff_s(void)
 uint32_t mqtt_utk_bridge_pub_fail(void)
 {
 	return br_pub_fail;
+}
+
+uint32_t mqtt_utk_bridge_stalls(void)
+{
+	return br_stalls;
 }
