@@ -42,7 +42,8 @@ typedef enum
 #define S1_LOOP_MS 20U /* requested; 20-30 ms actual on the 10 ms tick */
 #define S1_SNAP_PERIOD_MS 200U
 #define S1_HB_PERIOD_MS 1000U
-#define S1_EVT_PER_CYCLE 4U /* bounded work per loop */
+#define S1_STATUS_PERIOD_MS 10000U /* console status line (not in TEST) */
+#define S1_EVT_PER_CYCLE 4U        /* bounded work per loop */
 #define S1_CMD_PER_CYCLE 2U
 
 /* ---- Publish request (MBF_TELEM_OUT message) ----------------------------

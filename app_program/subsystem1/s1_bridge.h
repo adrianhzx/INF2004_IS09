@@ -36,4 +36,7 @@ uint32_t mqtt_utk_bridge_backoff_s (void);
 /** Publish requests the bridge could not hand to MQTT (saturating). */
 uint32_t mqtt_utk_bridge_pub_fail (void);
 
+/** Sessions closed because publishing stalled for 5 s (silent link loss). */
+uint32_t mqtt_utk_bridge_stalls (void);
+
 #endif /* S1_BRIDGE_H */

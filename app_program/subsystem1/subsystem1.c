@@ -40,10 +40,14 @@ EXPORT ID mbf_telem_evt = 0;
 EXPORT ID mbf_telem_out = 0;
 EXPORT ID mbf_telem_in  = 0;
 
-static s1_stats_t       g_s1_stats;
-static s1_cmd_ctx_t     g_s1_cmd;
-static s1_cadence_t     g_s1_snap_cad;
-static s1_cadence_t     g_s1_hb_cad;
+static s1_stats_t   g_s1_stats;
+static s1_cmd_ctx_t g_s1_cmd;
+static s1_cadence_t g_s1_snap_cad;
+static s1_cadence_t g_s1_hb_cad;
+#if !APP_TEST
+static s1_cadence_t g_s1_status_cad;
+static bool         g_s1_status_started = false;
+#endif
 static app_conn_state_t g_s1_conn           = APP_CONN_WIFI_CONNECTING;
 static bool             g_s1_conn_valid     = false;
 static uint16_t         g_s1_faults_have    = 0U;
@@ -420,6 +424,42 @@ s1_handle_commands (uint32_t now_ms)
     }
 }
 
+/* ---- console status
+ * ---------------------------------------------------------- */
+
+#if !APP_TEST
+/** One line every 10 s, so a console opened at any time shows whether the
+ *  task is alive, what it thinks the link is, and whether the bridge is
+ *  failing (bench B1: the car fell silent and nothing said why). Not in the
+ *  TEST image, to keep its [TEST] log and timing unchanged. */
+static void
+s1_status_line (app_conn_state_t state, uint32_t now_ms)
+{
+    if (!g_s1_status_started)
+    {
+        s1_cadence_start(&g_s1_status_cad, now_ms + S1_STATUS_PERIOD_MS,
+                         S1_STATUS_PERIOD_MS);
+        g_s1_status_started = true;
+    }
+    if (!s1_cadence_due(&g_s1_status_cad, now_ms))
+    {
+        return;
+    }
+    tm_printf(
+        (UB *) "telem: %s up %u s | sent snap %u hb %u evt %u obs %u | "
+               "out_full %u pub_fail %u stalls %u | dropped %u | "
+               "cmd ok %u rej %u\n",
+        (UB *) g_s1_conn_names[state & 3U], (unsigned) (now_ms / 1000U),
+        (unsigned) g_s1_stats.sent[S1_TOPIC_SNAP],
+        (unsigned) g_s1_stats.sent[S1_TOPIC_HB],
+        (unsigned) g_s1_stats.sent[S1_TOPIC_EVT],
+        (unsigned) g_s1_stats.sent[S1_TOPIC_OBS],
+        (unsigned) g_s1_stats.out_full, (unsigned) mqtt_utk_bridge_pub_fail(),
+        (unsigned) mqtt_utk_bridge_stalls(), (unsigned) app_ipc_telem_dropped(),
+        (unsigned) g_s1_stats.cmd_ok, (unsigned) g_s1_stats.cmd_rejected);
+}
+#endif
+
 /* ---- task
  * ---------------------------------------------------------------------- */
 
@@ -462,6 +502,9 @@ telemetry_comms_task (INT stacd, void * p_exinf)
         g_comms_word = app_comms_pack(state, backoff, app_ipc_telem_dropped());
 
         s1_handle_commands(now_ms);
+#if !APP_TEST
+        s1_status_line(state, now_ms);
+#endif
 
         if (APP_CONN_ONLINE == state)
         {

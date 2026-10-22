@@ -55,7 +55,7 @@ the Python standard library.
 
 | ID | What is tested | Requirement | Steps | Pass criterion |
 |---|---|---|---|---|
-| B1 | rates and integrity on the wire | NFR6, FR20, FR21 | `python3 tools/telem_bench.py --host <laptop IP> --secs 60` | snapshot 5.0 +-0.1 Hz, heartbeat 1.0 +-0.05 Hz, 0 decode errors, 0 sequence gaps (the tool prints PASS/FAIL) |
+| B1 | rates and integrity on the wire | NFR6, FR20, FR21 | `python3 tools/telem_bench.py --host <laptop IP> --secs 60` | B1a snapshot 5.0 +-0.1 Hz and B1b heartbeat 1.0 +-0.05 Hz (each over the time it flowed), B1c 0 decode errors, B1d 0 sequence gaps, B1e no silence > 1 s anywhere in the window (the tool prints PASS/FAIL) |
 | B2 | message size (Week 13 item 3) | NFR28 | same 60 s run; record "payload total" B/s and frame sizes | snapshot 18 B, heartbeat 6 B, event 4 B, obstacle 10 B; record B/s next to the text baseline |
 | B3 | broker outage and recovery | FR22, NFR17, NFR18 | stop the broker 30 s, restart it; watch console and heartbeat | console shows MQTT_CONNECTING / BACKOFF with delays 1, 2, 4, 8, 10 s (never > 10 s); ONLINE again within 10 s + connect time after restart; next heartbeat reports the drop count |
 | B4 | Wi-Fi outage | FR22 | switch the hotspot off 30 s, then on | WIFI_CONNECTING while off, ONLINE again without a reset; no `[TEST]` / boot banner reprinted |
@@ -63,6 +63,7 @@ the Python standard library.
 | B6 | retained START after reconnect (Mosquitto only) | D-02 | `--send start N --retain`, then restart the car or the broker | START_GUARD rejection after each reconnect; the car never leaves S1 |
 | B7 | soak (A3 MQTT spike) | A3, NFR16 | demo image publishing for 10 min with `--secs 600` | no reset, 0 decode errors, sequence gaps = 0 |
 | B8 | timing isolation with real traffic | A15, NFR17 | test image while ONLINE to the broker; repeat S1-U10 and SH-U01 | cyclic 100 +-2 per s, SH-U04c still PASS |
+| B9 | silent link loss (no FIN, no ACKs) | FR22, Statechart 4 | demo image ONLINE, serial console open, `telem_bench.py --secs 120` running; switch the **laptop's** Wi-Fi off for 20 s, then on | console prints `mqtt: publishing stalled for 5 s, link lost` within 7 s of switching off; back-off delays never > 10 s; ONLINE again within 16 s of Wi-Fi on; 10 s `telem:` line shows `stalls 1`; bench B1e longest silence <= outage + 16 s |
 
 ## Results
 

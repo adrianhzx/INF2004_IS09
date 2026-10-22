@@ -131,10 +131,23 @@ class Stats:
         self.last_snap = None
         self.event_types = {}
         self.rejects = []
+        self.first_t = None   # monotonic time of first / last frame
+        self.last_t = None
+        self.max_gap = 0.0    # longest silence between two frames
+        self.max_gap_at = None
+        self.kind_t = {}      # kind -> [first, last] monotonic time
 
     def add(self, kind, payload, verbose):
         if kind not in self.count:
             return
+        now = time.monotonic()
+        if self.last_t is not None and now - self.last_t > self.max_gap:
+            self.max_gap = now - self.last_t
+            self.max_gap_at = time.strftime("%H:%M:%S")
+        if self.first_t is None:
+            self.first_t = now
+        self.last_t = now
+        self.kind_t.setdefault(kind, [now, now])[1] = now
         self.count[kind] += 1
         self.bytes[kind] += len(payload)
         try:
@@ -186,12 +199,27 @@ def listen(m, base, secs, verbose):
         topic, payload = msg
         if topic.startswith(base):
             st.add(topic[len(base):], payload, verbose)
-    return st, time.monotonic() - t0
+    t1 = time.monotonic()
+    # silence before the first and after the last frame counts too
+    if st.first_t is None:
+        st.max_gap, st.max_gap_at = t1 - t0, "whole window"
+    else:
+        if st.first_t - t0 > st.max_gap:
+            st.max_gap, st.max_gap_at = st.first_t - t0, "start of window"
+        if t1 - st.last_t > st.max_gap:
+            st.max_gap, st.max_gap_at = t1 - st.last_t, "end of window"
+    return st, t1 - t0
+
+
+MAX_SILENCE_S = 1.0  # snapshots every 200 ms: 1 s without any frame = stall
 
 
 def report(st, secs):
     ok = True
+    active = (st.last_t - st.first_t) if st.first_t is not None else 0.0
     print("\n=== %.1f s on %s ===" % (secs, time.strftime("%Y-%m-%d %H:%M:%S")))
+    print("frames flowed for %.1f s of %.1f s; longest silence %.1f s (%s)" % (
+        active, secs, st.max_gap, st.max_gap_at or "-"))
     for k in ("snap", "hb", "evt", "obs"):
         print("%-4s %5d frames  %6.2f Hz  %6d B  %7.1f B/s" % (
             k, st.count[k], st.count[k] / secs, st.bytes[k], st.bytes[k] / secs))
@@ -210,13 +238,25 @@ def report(st, secs):
         print("[%s] %s  (%s)" % ("PASS" if cond else "FAIL", name, detail))
 
     print()
-    check("B1a snapshot rate 5.0 +-0.1 Hz", abs(st.count["snap"] / secs - SNAP_HZ) <= SNAP_TOL,
-          "%.2f Hz" % (st.count["snap"] / secs))
-    check("B1b heartbeat rate 1.0 +-0.05 Hz", abs(st.count["hb"] / secs - HB_HZ) <= HB_TOL,
-          "%.2f Hz" % (st.count["hb"] / secs))
+    # Rates over the time frames actually flowed; a stall is reported by B1e
+    # rather than disguised as a slow rate.
+    def rate(kind):
+        first, last = st.kind_t.get(kind, (0.0, 0.0))
+        return (st.count[kind] - 1) / (last - first) if last > first else 0.0
+
+    snap_hz, hb_hz = rate("snap"), rate("hb")
+    check("B1a snapshot rate 5.0 +-0.1 Hz", abs(snap_hz - SNAP_HZ) <= SNAP_TOL,
+          "%.2f Hz while flowing" % snap_hz)
+    check("B1b heartbeat rate 1.0 +-0.05 Hz", abs(hb_hz - HB_HZ) <= HB_TOL,
+          "%.2f Hz while flowing" % hb_hz)
     check("B1c every frame decodes", st.decode_errors == 0, "%d errors" % st.decode_errors)
     check("B1d no snapshot or heartbeat lost", st.snap_gaps == 0 and st.hb_gaps == 0,
           "%d snapshot gaps, %d heartbeat gaps" % (st.snap_gaps, st.hb_gaps))
+    check("B1e no silence over %.0f s" % MAX_SILENCE_S, st.max_gap <= MAX_SILENCE_S,
+          "longest %.1f s at %s" % (st.max_gap, st.max_gap_at or "-"))
+    if st.max_gap > MAX_SILENCE_S:
+        print("      -> the car stopped publishing; check its console for 'mqtt:' and the"
+              " 10 s 'telem:' status line, and ping the car")
     return ok
 
 
