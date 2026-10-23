@@ -30,3 +30,4 @@ testing/host/test_shared
 testing/host/test_motion
 testing/host/test_line
 testing/host/test_imu
+testing/host/test_scan

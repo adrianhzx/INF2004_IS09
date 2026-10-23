@@ -26,6 +26,11 @@
  *  identified. While 0, ObstacleScanTask never drives TRIG. */
 #define APP_CAL_ECHO_SHIFTER_VERIFIED 0
 
+/** HV-7 done: servo pulse limits found at battery voltage. While 0,
+ *  ObstacleScanTask configures PWM slice 7 but never routes GP15 to it, so
+ *  the servo is not energised. */
+#define APP_CAL_SERVO_ARMED 0
+
 /** HV-6 done: button polarity confirmed. 1 = pressed reads LOW. */
 #define APP_CAL_BUTTON_ACTIVE_LOW 1
 
@@ -138,6 +143,24 @@
 #define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
 #define APP_CAL_SERVO_MIN_US 1000U /* 0 deg pulse [TBC, HV-7] */
 #define APP_CAL_SERVO_MAX_US 2000U /* 180 deg pulse [TBC, HV-7] */
+#define APP_CAL_SERVO_LEFT_IS_MAX_PULSE                                        \
+    1 /* 1: longer pulse turns the sensor LEFT [TBC, HV-7] */
+#define APP_CAL_T_SERVO_MIN_SETTLE_MS 20U /* floor for a 5 deg step */
+#define APP_CAL_R_PROFILE_CM                                                   \
+    45U /* samples at or inside this belong to the obstacle [TBC] */
+#define APP_CAL_R_SIDE_FREE_CM                                                 \
+    60U /* samples beside the obstacle must exceed this for a valid side [TBC] \
+         */
+#define APP_CAL_Y_PATH_MAX_CM                                                  \
+    40U /* largest lateral bypass offset the course allows [TBC] */
+#define APP_CAL_US_BEAM_HALF_SIN_PERMILLE                                      \
+    122U /* sin(7 deg): HC-SR04 half beam [TBC, A10] */
+#define APP_CAL_D_SIDE_UNSAFE_CM                                               \
+    10U /* side range below this twice -> EVT_SIDE_UNSAFE [TBC] */
+#define APP_CAL_D_STOP_HYST_CM                                                 \
+    5U /* forward watch re-arms above D_STOP + this */
+#define APP_CAL_NO_ECHO_COUNT                                                  \
+    5U /* consecutive echo timeouts -> NO_ECHO fault */
 
 /* ---- IMU --------------------------------------------------------------- */
 #define APP_CAL_THETA_ON_HALF_DEG 10 /* 5.0 deg [TBC, A8] */

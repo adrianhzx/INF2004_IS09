@@ -134,7 +134,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 2 Motion | DONE (host-verified, target-built, bench NOT RUN, disarmed) | see section 7 |
 | 3 Line + Barcode | DONE (host-verified, target-built, bench NOT RUN) | see section 8 |
 | 4 IMU | DONE (host-verified, target-built, bench NOT RUN) | see section 9 |
-| 5 Obstacle | NOT STARTED | |
+| 5 Obstacle | DONE (host-verified, target-built, bench NOT RUN, outputs gated) | see section 10 |
 | 6 Wi-Fi/MQTT | NOT STARTED | |
 | 7 Integration | NOT STARTED | |
 | 8 Evidence | NOT STARTED | |
@@ -342,3 +342,50 @@ relabel suggested), D-20 (own polled I2C driver). Also:
 Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, axis mapping and signs
 `[TBC]` (HV-12), collision threshold unvalidated (A9, HV-13), K_CAL and
 NFR15 NOT MEASURED (HV-14). Next: PHASE 5 (subsystem5, obstacle scan).
+
+## 10. Phase 5 record (subsystem5 - ultrasonic scan and obstacle profile, Buddy 5)
+
+### Files written
+
+| Path | Role |
+|---|---|
+| `app_program/subsystem5/scan_core.[ch]` | pure algorithm: servo index <-> pulse and settle, 5 deg sin/cos table, lateral geometry (LEFT positive), forward-watch confirmation with hysteresis and NO_ECHO counting, coarse (9 x 15 deg) and fine (5 deg window) plans, profile builder (y_min, y_max, width with beam correction, closest, action by the Rev B validity rules + pivot guard, D-21), side-unsafe confirmation |
+| `app_program/subsystem5/drv_servo.[ch]` | PWM slice 7B, 50 Hz, 1 us per count; GP15 routed only when `APP_CAL_SERVO_ARMED` |
+| `app_program/subsystem5/task_scan.c` | EchoIsr (dispatcher callback: rise stamp, fall width, OVERRUN > 30 ms, one flag set) and ObstacleScanTask: IDLE / WATCH / SIDE_L / SIDE_R modes on FLG_SCAN requests and the 100 ms tick, synchronous PROFILE scan bounded by T_SCAN_TIMEOUT and interruptible by ABORT between samples, profile published under MTX_OBSTACLE with a 4-bit seq, EVT_OBSTACLE / EVT_SCAN_DONE / EVT_SCAN_FAIL / EVT_SIDE_UNSAFE, NO_ECHO and SCAN_TIMEOUT faults (D-22), `s5_profile_copy` for readers |
+| `app_program/subsystem5/subsystem5.[ch]`, `subsystem5_test.c` | FLG_SCAN, MTX_OBSTACLE, hardware bring-up behind the gates (D-23), S5-U01..06 |
+| `app_program/shared/app_cal.h` | `APP_CAL_SERVO_ARMED`, servo direction, R_PROFILE, R_SIDE_FREE, Y_PATH_MAX, beam correction, D_SIDE_UNSAFE, watch hysteresis, NO_ECHO count (all `[TBC]`) |
+| `testing/host/test_scan.c` | 37 checks against a synthetic world with a 14 deg beam |
+
+### Decisions recorded
+
+D-21 (action computed in the scanner from shared constants), D-22 (scan
+failure -> fault + EVT_SCAN_FAIL, controller stops), D-23 (two hardware
+gates; task answers honestly while disabled). Also:
+
+* Ranging is synchronous inside the task (TRIG, then one bounded flag wait
+  on ECHO_DONE | ABORT, 35 ms max); the ISR stores a halfword then a byte,
+  no RMW crosses the boundary (Rev B echo protocol).
+* The 100 ms watch tick comes from the shared cyclic handler (Phase 1), so
+  the trigger period is 100 ms >= 60 ms (NFR5) without a timer of its own.
+* Forward watch stops during a profile scan and after a request; the
+  controller re-requests WATCH_ON when it resumes line following.
+* `g_s5_samples` keeps all 37 angles (88 B) so the fine scan can reuse the
+  coarse samples; the profile itself is the 8 B two-word blackboard.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `make SMP=0 NET=lwip MQTT=1 -j8` | PASS 0 app warnings, text 340762 / data 140 / bss 79088 |
+| `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 351778 / 140 / 79112 |
+| `make SMP=0 -j8`, `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings |
+| `./testing/host/test_scan` | 37 passed, 0 failed |
+| `./testing/host/test_imu`, `test_line`, `test_shared`, `test_motion` (regression) | 56 / 114 / 418 / 56 passed, 0 failed |
+| `tools/barr-c/check_app.sh` | PASS (scan_core, drv_servo.h, test_scan.c added to clang-tidy) |
+| Linked sizes | `g_s5_samples` 88 B, `g_s5_watch` 3 B, `g_obstacle_profile` 8 B, `g_echo_width_us` 2 B + `g_echo_status` 1 B, `g_sin_q15` 38 B, `scan_core_build_profile` 978 B text, `docs/evidence/phase5_sizes.txt` |
+| On-target S5-U01..06, HV-5, HV-7, HV-15, NFR2/5/10/11/14 | **NOT RUN** |
+
+Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, TRIG and servo outputs
+gated off (`APP_CAL_ECHO_SHIFTER_VERIFIED 0`, `APP_CAL_SERVO_ARMED 0`), beam
+correction and side-validity constants `[TBC]` (HV-15). Next: PHASE 6
+(subsystem1, Wi-Fi / MQTT telemetry).

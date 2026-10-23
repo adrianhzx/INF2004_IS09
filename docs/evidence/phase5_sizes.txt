@@ -1,0 +1,16 @@
+# Phase 5 linked sizes (arm-none-eabi-nm -S, SMP=1 NET=lwip MQTT=1 TEST=1 image, 2026-10-23)
+20014198 00000001 B g_echo_status
+2001419a 00000002 B g_echo_width_us
+200145c0 00000003 b g_s5_watch
+20000120 00000008 D g_obstacle_profile
+100575a0 00000026 t g_sin_q15
+20014568 00000058 b g_s5_samples
+1001b5cc 00000060 t echo_isr
+1001b8a0 00000218 T s5_scan_task
+1001ab18 000003d2 T scan_core_build_profile
+
+# size (text data bss) per profile
+ 286714	    132	  21320	 308166	  4b3c6	mtk3pico_smp0_usb_cdc_wifi.elf
+ 340762	    140	  79088	 419990	  66896	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+ 351778	    140	  79112	 431030	  693b6	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+ 358306	    152	  83244	 441702	  6bd66	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf

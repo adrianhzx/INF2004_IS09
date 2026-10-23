@@ -107,6 +107,10 @@ ImuState: exactly 32 meaningful bits.
 | scan_state | Scan / Controller | <= 8 | 3 | word1 19-21 | | |
 | profile seq | Scan / Controller | 0..15 | 4 | word1 22-25 | | |
 
+| scan samples | Scan private (`g_s5_samples`) | 37 x 0..511 + valid mask | 37 x 16 + 64 | private | 88 B | cm; sentinel 511 |
+| watch state | Scan private (`g_s5_watch`) | counts + reported | 8+8+1 | private | 3 B | |
+| servo index / mode / side count / seq | Scan private | 0..36 / 4 modes / 0..255 / 0..15 | 8 each | private | | |
+
 ObstacleProfile: **50** meaningful bits (D-12; Rev B said 49) + 4 seq in two words.
 
 ## Comms (Buddy 1)

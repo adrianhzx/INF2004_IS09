@@ -36,9 +36,9 @@ subsystem's folder.** Shared files (`app_program/app_main.c`, `app.h`,
 | GP10 | S2 / MotionControlTask | M2A (right motor) PWM slice 5A |
 | GP11 | S2 / MotionControlTask | M2B PWM slice 5B |
 | GP12, GP13, GP14 | spare | servo headers 1-3 unused |
-| GP15 | S5 / ObstacleScanTask | scan servo PWM 50 Hz (servo header 4), slice 7B |
+| GP15 | S5 / ObstacleScanTask | scan servo PWM 50 Hz (servo header 4), slice 7B, routed only while `APP_CAL_SERVO_ARMED` (D-23) |
 | GP16 | S5 / ObstacleScanTask | HC-SR04 TRIG (GROVE 4) |
-| GP17 | S5 / EchoIsr | HC-SR04 ECHO **through <= 3.3 V divider/shifter (HV-5)** |
+| GP17 | S5 / EchoIsr | HC-SR04 ECHO **through <= 3.3 V divider/shifter (HV-5)** ; attached through the shared dispatcher, IRQ enabled only while `APP_CAL_ECHO_SHIFTER_VERIFIED` (D-23) |
 | GP18 | shared / VehicleControllerTask | on-board NeoPixel (optional status) |
 | GP19 | spare | used only by the TEST image as a forced-interrupt pin (SH-U03/04/08) |
 | GP20 | shared / VehicleControllerTask | START button (active-low assumed, HV-6) |

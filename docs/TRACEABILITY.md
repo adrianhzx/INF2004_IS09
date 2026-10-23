@@ -24,7 +24,12 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR11 | retain run maximum | B4 | `max_height_mm` from NORMAL episodes (H-IM-23, 26, 27; D-17) | H | HOST PASS |
 | FR12 | six motion classes + change reports | B4 | `classify()` STATIONARY/ACCELERATING/TURNING/CLIMBING/DESCENDING/IMPACT (+CRUISING), `APP_TEV_MOTION_CLASS` on change (H-IM-18, 19, 44..55) | H | HOST PASS (TURNING comes from MotionStatus, no gyro) |
 | FR13 | IMU collision -> latched stop | B4 + shared | two >= 2.5 g spikes while moving (H-IM-43..49) -> `app_safe_stop_request(COLLISION)` first, then IMU_FAULT (`task_imu.c`, D-18/D-19) | H PASS, T NOT RUN, B (HV-13) NOT RUN | PARTIAL (threshold A9 unvalidated) |
-| FR14-FR19 | obstacle detect/stop/profile/avoid/reacquire | B5 + ctrl | Phase 5/7; `ObstacleProfile` words (H-BB-15..19 PASS) | B + C | NOT RUN |
+| FR14 | detect an obstacle ahead | B5 | forward watch every 100 ms, two consecutive readings at/inside D_STOP -> EVT_OBSTACLE (H-SC-12..17) | H + B | HOST PASS; bench NOT RUN (HV-5) |
+| FR15 | stop before the obstacle | B5 + ctrl | EVT_OBSTACLE -> controller BRAKE (Phase 7); NFR2 budget: 2 x 100 ms + 10 ms | C | NOT RUN |
+| FR16 | coarse + fine profile: location, width, closest, side clearances | B5 | `profile_scan` (9 coarse, 5 deg fine window), `scan_core_build_profile` y_min/y_max/width/closest with beam correction (H-SC-21..33) | H + B (HV-15) | HOST PASS; NFR10/11 NOT MEASURED |
+| FR17 | choose a bypass side | B5 + ctrl | `action` LEFT/RIGHT/REVERSE/STOP from the Rev B validity rules (D-21, H-SC-26..31); controller executes (Phase 7) | H | HOST PASS |
+| FR18 | side ranging during the pass | B5 | REQ_SIDE_L/R, two readings inside D_SIDE_UNSAFE -> EVT_SIDE_UNSAFE (H-SC-34..37) | H | HOST PASS |
+| FR19 | reacquire the line after the bypass | ctrl + B3 | Phase 7 (actions 5-6, until_line) | C | NOT RUN |
 | FR20 | Wi-Fi + MQTT telemetry of all listed items | B1 | Phase 6; codecs SNAP/EVT/OBS (H-TF PASS, Python parity PASS) | H PASS, bench NOT RUN | PARTIAL (obstacle summary via OBS frame, D-06 pending ratification) |
 | FR21 | periodic heartbeat/status | B1 | Phase 6; HB frame codec (H-TF-08 PASS) | NOT RUN | PARTIAL (frame defined under D-06) |
 | FR22 | auto reconnect while autonomy continues | B1 | Phase 6 | NOT RUN | NOT RUN |
@@ -32,13 +37,13 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR24 | local START run / STOP latched stop | ctrl | `vehicle_controller.c` button ISR + debounce + S7 | T (SH-U08 NOT RUN), B (HV-6) | PARTIAL |
 | FR25 | brake + latch on stall / stale / timeouts, report cause | all | motion producers STALL/STALE_LINE/CTRL_HEARTBEAT/ENCODER (H-MO-36..41 PASS); controller timeouts Phase 7 | H PASS | PARTIAL |
 | NFR1 | brake <= 20 ms after latch | B2 | `task_motion.c` brakes on the latch byte before any other work, 10 ms cycle (H-MO-20 same-cycle brake) | B (HV-9) | NOT RUN (design margin: 10 ms cycle + handler latency) |
-| NFR2 | brake cmd <= 250 ms inside D_STOP | B5 + ctrl | Phase 5/7 | C | NOT RUN ([TBC] clearance) |
+| NFR2 | brake cmd <= 250 ms inside D_STOP | B5 + ctrl | watch tick 100 ms x 2 confirmations + controller tick 20 ms + motion cycle 10 ms = 230 ms worst case by design; clearance [TBC] | C | NOT RUN (design budget only) |
 | NFR3 | line update every 10 ms | B3 | CYC_10MS wake slot LINE, `s3_line_cycle` (S3-U02, S3-U03) | T | NOT RUN |
 | NFR4 | barcode edge stamp error <= 10 % | B3 | dispatcher stamp at 1 us, stored in 8 us units (0.27 % of a 3 ms narrow bar); dispatcher latency is the real error term | B (HV-11) | NOT RUN (A6) |
-| NFR5 | US trigger > 60 ms, echo timeout 30 ms | B5 | `APP_CAL_T_US_TRIGGER_PERIOD_MS`, `APP_ECHO_WIDTH_MAX_US` | T | NOT RUN |
+| NFR5 | US trigger > 60 ms, echo timeout 30 ms | B5 | 100 ms tick between rangings, `range_once` waits 35 ms max, EchoIsr OVERRUN above 30 ms (S5-U02f, S5-U04) | T | NOT RUN |
 | NFR6 | 1 s heartbeat, 200 ms snapshot | B1 | Phase 6 | bench | NOT RUN |
 | NFR7-NFR9, NFR15, NFR19 | thresholds [TBC] | - | - | - | BLOCKED (threshold TBC) |
-| NFR10-NFR14 | obstacle performance bands | B5 | Phase 5 | C | NOT RUN |
+| NFR10-NFR14 | obstacle performance bands | B5 + ctrl | width/position from `scan_core` (HV-15), T_profile from `s5_last_scan_ms`, bypass timing Phase 7 | B + C | NOT RUN |
 | NFR16 | CPU idle >= 30 %, stacks <= 75 % | integration | Phase 8 measurement | T | NOT RUN |
 | NFR17 | network never changes control periods / sends never wait | B1 + shared | `app_ipc_telem_post` TMO_POL (H-SF-17, SH-U06) | H PASS, T NOT RUN | PARTIAL |
 | NFR18 | reconnect back-off capped at 10 s | B1 | `APP_BACKOFF_S_MAX`, comms_word clamp (H-BB-22 PASS) | H PASS | PARTIAL |

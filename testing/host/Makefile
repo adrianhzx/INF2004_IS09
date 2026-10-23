@@ -12,7 +12,8 @@ CFLAGS  := -std=c99 -pedantic -Wall -Wextra -Wshadow -Wswitch-default \
 S2      := ../../app_program/subsystem2
 S3      := ../../app_program/subsystem3
 S4      := ../../app_program/subsystem4
-CFLAGS  += -I$(S2) -I$(S3) -I$(S4)
+S5      := ../../app_program/subsystem5
+CFLAGS  += -I$(S2) -I$(S3) -I$(S4) -I$(S5)
 
 SRCS := test_shared.c host_port.c \
         $(SHARED)/app_safety.c $(SHARED)/app_ipc.c $(SHARED)/app_telemetry.c \
@@ -22,8 +23,9 @@ MOTION_SRCS := test_motion.c host_port.c $(SHARED)/app_blackboard.c \
 LINE_SRCS := test_line.c host_port.c $(SHARED)/app_blackboard.c \
         $(S3)/line_core.c $(S3)/barcode_core.c
 IMU_SRCS := test_imu.c host_port.c $(SHARED)/app_blackboard.c $(S4)/imu_core.c
+SCAN_SRCS := test_scan.c host_port.c $(SHARED)/app_blackboard.c $(S5)/scan_core.c
 
-all: test_shared test_motion test_line test_imu
+all: test_shared test_motion test_line test_imu test_scan
 
 test_shared: $(SRCS) $(wildcard $(SHARED)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(SRCS)
@@ -37,13 +39,17 @@ test_line: $(LINE_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S3)/*.h) host_por
 test_imu: $(IMU_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S4)/*.h) host_port.h
 	$(CC) $(CFLAGS) -D_DEFAULT_SOURCE -o $@ $(IMU_SRCS) -lm
 
-run: test_shared test_motion test_line test_imu
+test_scan: $(SCAN_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S5)/*.h) host_port.h
+	$(CC) $(CFLAGS) -o $@ $(SCAN_SRCS) -lm
+
+run: test_shared test_motion test_line test_imu test_scan
 	./test_shared
 	./test_motion
 	./test_line
 	./test_imu
+	./test_scan
 
 clean:
-	rm -f test_shared test_motion test_line test_imu vectors.txt
+	rm -f test_shared test_motion test_line test_imu test_scan vectors.txt
 
 .PHONY: all run clean
