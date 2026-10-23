@@ -135,7 +135,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 3 Line + Barcode | DONE (host-verified, target-built, bench NOT RUN) | see section 8 |
 | 4 IMU | DONE (host-verified, target-built, bench NOT RUN) | see section 9 |
 | 5 Obstacle | DONE (host-verified, target-built, bench NOT RUN, outputs gated) | see section 10 |
-| 6 Wi-Fi/MQTT | IN PROGRESS (Buddy 1 branch merged 23 Oct): TelemetryCommsTask + host tests (62 PASS); on-target S1-U01..U10 PASS 10/0 on 22 Oct (`3f3cdd6`). Radio bridge in `mqtt_utk.c` (D-10) still NOT in this branch: bench B1 on the held bridge delivered every frame at the right rate, then stalled silently after 49 s; fix written there, not yet tested | testing/subsystem1/TEST_LOG.md |
+| 6 Wi-Fi/MQTT | CODE COMPLETE, BENCH NOT VERIFIED: TelemetryCommsTask (Buddy 1, host 62 PASS, on-target S1-U01..U10 10/0 on 22 Oct) + `mqtt_utk.c` bridge with fix2 merged 23 Oct (D-10 HOLD for agreement). Bench B1 FAILED on the pre-fix bridge (silent stall at 48.8 s); fix2 NOT RUN on hardware | see section 11, testing/subsystem1/TEST_LOG.md |
 | 7 Integration | NOT STARTED | |
 | 8 Evidence | NOT STARTED | |
 
@@ -389,3 +389,52 @@ Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, TRIG and servo outputs
 gated off (`APP_CAL_ECHO_SHIFTER_VERIFIED 0`, `APP_CAL_SERVO_ARMED 0`), beam
 correction and side-validity constants `[TBC]` (HV-15). Next: PHASE 6
 (subsystem1, Wi-Fi / MQTT telemetry).
+
+## 11. Phase 6 record (subsystem1 - Wi-Fi / MQTT telemetry, Buddy 1; integration by this session)
+
+### Provenance
+
+Buddy 1's work arrived as two deliveries and was merged, not rewritten:
+`origin/feat/revb-autonomous-integration` at `c3c7dcf` (merge `10ca7c8`:
+SH-U04c SRAM fix, TelemetryCommsTask, host + on-target tests, 22 Oct
+hardware logs) and the `is09-phase6-fix2.bundle` (`7792d40` bench-tool stall
+detection + status line, `hold/mqtt-bridge` = `5b60564` bridge + `fc3109f`
+fix2). This session added the ABI static asserts, the network-ownership
+gate, and the documentation below.
+
+### What is in the branch now
+
+| Path | Role |
+|---|---|
+| `app_program/subsystem1/s1_telem.[ch]` | pure logic: topics, publish-request format, conn_state derivation, drift-free cadence, inbound command filter (D-02 START guard, replay, CRC), snapshot assembly |
+| `app_program/subsystem1/subsystem1.c` | TelemetryCommsTask priority 8, 20 ms loop: link observation, WIFI_LOSS / BROKER_LOSS mirror, comms_word, commands -> `g_remote_cmd` + EVT_REMOTE_CMD, SNAP 200 ms / HB 1 s / OBS on change / <= 4 EVT per loop, reconnect reports straight to OUT, 10 s console status line; never calls the network stack |
+| `app_program/subsystem1/s1_bridge.[ch]` | weak defaults of the bridge API for images without MQTT |
+| `lib/liblwip/sysdepend/pico_rp2040/mqtt_utk.[ch]` | **library change (D-10, HOLD)**: bridge poll every 20 ms on the kernel Wi-Fi task (<= 4 publishes, QoS 0), cmd-topic subscription -> `MBF_TELEM_IN`, back-off 1-2-4-8-10 s, fix2 stall / connect-timeout handling (D-24) |
+| `tools/telem_bench.py`, `testing/subsystem1/host/test_s1.c` | bench tool (B1a-e, B9) and 62 host checks |
+
+### Validation (this session, merged tree)
+
+| Check | Result |
+|---|---|
+| `make SMP=0 NET=lwip MQTT=1 -j8` | PASS 0 app warnings, text 347030 / bss 79252; `mqtt_utk_bridge_*` resolve to the strong symbols, `bridge_poll` / `link_lost` linked |
+| `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 362542 / 79340 |
+| `make SMP=0 -j8` (weak stubs), `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings |
+| `testing/subsystem1/host/test_s1` | 62 passed, 0 failed |
+| `testing/host` suites (regression) | 418 / 56 / 114 / 56 / 37 passed, 0 failed |
+| `tools/barr-c/check_app.sh` | PASS, now including the D-10 network-ownership gate |
+| Bridge ABI asserts (`sizeof ID/INT/TMO == 4`, `TMO_POL == 0`) | compile PASS |
+| On-target S1-U01..U10 on the merged image, bench B1 (fix2), B2-B9 | **NOT RUN** here |
+
+### Open items for the bench (Buddy 1)
+
+1. Re-run B1 on the merged demo image **against Mosquitto**, not
+   `mqtt_broker.py`, to separate the broker from the car (D-24 root cause).
+2. B9 (laptop Wi-Fi off 20 s) proves fix2's stall path; B3/B4 the back-off.
+3. Re-run S1-U01..U10 on the merged TEST image (the test detaches the real
+   bridge, as before).
+4. Team + instructor agreement on the `mqtt_utk.c` change (TEAM.md section
+   3); until then the ledger status stays HOLD.
+
+Status: BUILD PASS, HOST TEST PASS, TARGET (merged image) NOT RUN, BENCH NOT
+VERIFIED since fix2. Next: PHASE 7 (VehicleControllerTask S2-S6 and full
+integration).

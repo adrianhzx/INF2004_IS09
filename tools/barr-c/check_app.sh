@@ -25,6 +25,11 @@ if grep -nE '(^|[^A-Za-z0-9_])(abort|exit|setjmp|longjmp)[[:space:]]*\(' /dev/nu
     echo "FAIL: abort/exit/setjmp/longjmp (8.5.b)"; exit 1; fi
 grep -nE '(^|[^A-Za-z0-9_])goto([^A-Za-z0-9_]|$)' /dev/null $FILES && echo "ADVISORY: goto (1.7.c)" || true
 
+echo "== network ownership (D-10): no application code calls cyw43 / lwIP / MQTT =="
+NET_BAD=$(grep -nE 'mqtt_publish|mqtt_subscribe|mqtt_client|cyw43_arch|cyw43_wifi|cyw43_poll|tcp_|udp_|pbuf_|netif_|sys_timeout|#include *"lwip/' /dev/null $FILES | grep -v 'barr-c:allow' || true)
+if [ -n "$NET_BAD" ]; then echo "$NET_BAD"; echo "FAIL: application code touches the network stack (D-10)"; exit 1; fi
+echo "(only cyw43_utk_get_status / mqtt_utk_bridge_* status reads are used)"
+
 echo "== module names (4.1.a/c/d; 4.1.b with DEV-1 exemption) =="
 for f in $FILES; do
     b=$(basename "$f")

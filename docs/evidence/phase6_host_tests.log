@@ -1,0 +1,6 @@
+subsystem1 host tests: 62 passed, 0 failed
+host tests: 418 passed, 0 failed
+motion host tests: 56 passed, 0 failed
+line/barcode host tests: 114 passed, 0 failed
+imu host tests: 56 passed, 0 failed
+scan host tests: 37 passed, 0 failed

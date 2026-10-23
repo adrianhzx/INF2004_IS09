@@ -15,4 +15,17 @@
  */
 void mqtt_utk_start(void);
 
+/*
+ * Application bridge (TEAM.md section 3; IS09 decision D-10). Safe to call
+ * from any task: these only store message-buffer IDs or read status words.
+ * Prototypes must stay identical to app_program/subsystem1/s1_bridge.h.
+ */
+#include <stdint.h>
+void mqtt_utk_bridge_attach(int32_t out_mbf, int32_t in_mbf,
+			    const char *cmd_topic);
+uint32_t mqtt_utk_bridge_connected(void);
+uint32_t mqtt_utk_bridge_backoff_s(void);
+uint32_t mqtt_utk_bridge_pub_fail(void);
+uint32_t mqtt_utk_bridge_stalls(void);
+
 #endif /* MQTT_UTK_H */

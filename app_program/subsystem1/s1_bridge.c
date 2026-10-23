@@ -33,3 +33,9 @@ mqtt_utk_bridge_pub_fail (void)
 {
     return 0U;
 }
+
+__attribute__((weak)) uint32_t
+mqtt_utk_bridge_stalls (void)
+{
+    return 0U;
+}

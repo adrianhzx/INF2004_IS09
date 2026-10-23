@@ -30,10 +30,10 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR17 | choose a bypass side | B5 + ctrl | `action` LEFT/RIGHT/REVERSE/STOP from the Rev B validity rules (D-21, H-SC-26..31); controller executes (Phase 7) | H | HOST PASS |
 | FR18 | side ranging during the pass | B5 | REQ_SIDE_L/R, two readings inside D_SIDE_UNSAFE -> EVT_SIDE_UNSAFE (H-SC-34..37) | H | HOST PASS |
 | FR19 | reacquire the line after the bypass | ctrl + B3 | Phase 7 (actions 5-6, until_line) | C | NOT RUN |
-| FR20 | Wi-Fi + MQTT telemetry of all listed items | B1 | Phase 6; codecs SNAP/EVT/OBS (H-TF PASS, Python parity PASS) | H PASS, bench NOT RUN | PARTIAL (obstacle summary via OBS frame, D-06 pending ratification) |
-| FR21 | periodic heartbeat/status | B1 | Phase 6; HB frame codec (H-TF-08 PASS) | NOT RUN | PARTIAL (frame defined under D-06) |
-| FR22 | auto reconnect while autonomy continues | B1 | Phase 6 | NOT RUN | NOT RUN |
-| FR23 | command topic, START/STOP only | B1 + ctrl | `app_cmd_frame_decode` + `remote_cmd()` guard (H-CMD-01..10 PASS) | H PASS | PARTIAL |
+| FR20 | Wi-Fi + MQTT telemetry of all listed items | B1 | `s1_snapshot_build` from every blackboard word (H-S1-SNAP, S1-U05/U06 PASS on target 22 Oct), bridge `mqtt_utk.c` publishes `MBF_TELEM_OUT` (D-10) | H PASS, T PASS, bench B1 FAIL (stall) -> fix2 NOT RUN | PARTIAL (radio path unverified since fix2) |
+| FR21 | periodic heartbeat/status | B1 | 1 s HB with conn_state, back-off, dropped (S1-U07 PASS on target; B1 1.00 Hz while flowing) | T PASS, bench NOT RUN since fix2 | PARTIAL |
+| FR22 | auto reconnect while autonomy continues | B1 | `link_lost()` -> back-off 1-2-4-8-10 s -> reconnect; 5 s connect deadline; 5 s publish stall -> link lost (fix2 `fc3109f`) | bench B3/B4/B9 NOT RUN | NOT RUN (code complete, untested) |
+| FR23 | command topic, START/STOP only | B1 + ctrl | bridge subscribes `is09/is09-car/cmd` -> `MBF_TELEM_IN` -> `s1_cmd_filter` (H-S1-CMD, S1-U08 PASS on target) -> controller guard | H PASS, T PASS, bench B5/B6 NOT RUN | PARTIAL |
 | FR24 | local START run / STOP latched stop | ctrl | `vehicle_controller.c` button ISR + debounce + S7 | T (SH-U08 NOT RUN), B (HV-6) | PARTIAL |
 | FR25 | brake + latch on stall / stale / timeouts, report cause | all | motion producers STALL/STALE_LINE/CTRL_HEARTBEAT/ENCODER (H-MO-36..41 PASS); controller timeouts Phase 7 | H PASS | PARTIAL |
 | NFR1 | brake <= 20 ms after latch | B2 | `task_motion.c` brakes on the latch byte before any other work, 10 ms cycle (H-MO-20 same-cycle brake) | B (HV-9) | NOT RUN (design margin: 10 ms cycle + handler latency) |
@@ -41,12 +41,12 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | NFR3 | line update every 10 ms | B3 | CYC_10MS wake slot LINE, `s3_line_cycle` (S3-U02, S3-U03) | T | NOT RUN |
 | NFR4 | barcode edge stamp error <= 10 % | B3 | dispatcher stamp at 1 us, stored in 8 us units (0.27 % of a 3 ms narrow bar); dispatcher latency is the real error term | B (HV-11) | NOT RUN (A6) |
 | NFR5 | US trigger > 60 ms, echo timeout 30 ms | B5 | 100 ms tick between rangings, `range_once` waits 35 ms max, EchoIsr OVERRUN above 30 ms (S5-U02f, S5-U04) | T | NOT RUN |
-| NFR6 | 1 s heartbeat, 200 ms snapshot | B1 | Phase 6 | bench | NOT RUN |
+| NFR6 | 1 s heartbeat, 200 ms snapshot | B1 | drift-free cadence (H-S1-CAD, S1-U05/U07 PASS); B1 measured 5.00 / 1.00 Hz while frames flowed | T PASS, bench re-run pending | PARTIAL |
 | NFR7-NFR9, NFR15, NFR19 | thresholds [TBC] | - | - | - | BLOCKED (threshold TBC) |
 | NFR10-NFR14 | obstacle performance bands | B5 + ctrl | width/position from `scan_core` (HV-15), T_profile from `s5_last_scan_ms`, bypass timing Phase 7 | B + C | NOT RUN |
 | NFR16 | CPU idle >= 30 %, stacks <= 75 % | integration | Phase 8 measurement | T | NOT RUN |
-| NFR17 | network never changes control periods / sends never wait | B1 + shared | `app_ipc_telem_post` TMO_POL (H-SF-17, SH-U06) | H PASS, T NOT RUN | PARTIAL |
-| NFR18 | reconnect back-off capped at 10 s | B1 | `APP_BACKOFF_S_MAX`, comms_word clamp (H-BB-22 PASS) | H PASS | PARTIAL |
+| NFR17 | network never changes control periods / sends never wait | B1 + shared | `app_ipc_telem_post` TMO_POL (H-SF-17, SH-U06 PASS), S1-U04/U09/U10 PASS on target (cyclic 100/s under load), bridge polls with TMO_POL only; gate: no app code calls lwIP/cyw43 | H PASS, T PASS, B8 NOT RUN | PARTIAL |
+| NFR18 | reconnect back-off capped at 10 s | B1 | `MQTT_UTK_RETRY_MAX_MS 10000` in the bridge, `APP_BACKOFF_S_MAX` clamp (H-BB-22) | H PASS, bench B3 NOT RUN | PARTIAL |
 | NFR20 | micro T-Kernel on Pico on Robo Pico | all | template kept, 4 profiles build (ledger) | build | PASS (build) |
 | NFR21 | C with Pico C SDK | all | ledger section 0 | build | PASS (build) |
 | NFR22 | electrical limits | integration | HV-1, HV-5, HV-8; no firmware proof possible | B | NOT RUN |

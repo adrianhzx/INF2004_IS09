@@ -89,6 +89,7 @@ priority 3 and the Wi-Fi service task priority 4, both above our tasks 4-8.
 | IF-IS | IMU -> Controller, Comms | lock-free word + `EVT_HUMP_START/END` | `g_imu_state` | 32-bit ImuState | Rev B |
 | IF-OP | Scan -> Controller, Comms | mutex copy (owned by S5) + `EVT_OBSTACLE/SCAN_DONE/SCAN_FAIL/SIDE_UNSAFE`; Controller -> Scan `flg_scan` requests | `g_obstacle_profile[2]`, `mtx_obstacle`, `flg_scan` | 50-bit profile | Rev B |
 | IF-TE | any -> Comms | message buffer (owned by S1), non-blocking | `mbf_telem_evt` | 4 B event records, drop counted | Rev B |
+| IF-NB | Comms <-> kernel Wi-Fi task (MQTT bridge) | two message buffers (owned by S1), both sides `TMO_POL`; status getters `mqtt_utk_bridge_*` | `mbf_telem_out`, `mbf_telem_in` | publish requests `[len][topic][payload]` (<= 43 B); inbound command payloads (<= 8 B) | D-10; change to `mqtt_utk.c` merged into the branch 23 Oct (`5b60564`, fix2 `fc3109f`), **still pending team + instructor agreement**, bench-untested since fix2 |
 | IF-RC | Comms -> Controller | byte + FLG_CTRL `EVT_REMOTE_CMD` | `g_remote_cmd`, `g_remote_cmd_gen` | validated START/STOP | Rev B + D-11 |
 | IF-CW | Comms -> Controller | lock-free halfword | `g_comms_word` | conn state, backoff, dropped | Rev B |
 | IF-HB | Controller -> Motion | byte | `g_ctrl_heartbeat` | increments every 20 ms | Rev B |
@@ -101,7 +102,7 @@ priority 3 and the Wi-Fi service task priority 4, both above our tasks 4-8.
 | Task | 32 | 1 | 1 | 1 | 2 | 1 | 1 |
 | Event flag | 16 | 1 (FLG_CTRL) | | | 1 (FLG_BARCODE) | | 1 (FLG_SCAN) |
 | Mutex | 12 | | | | | | 1 (MTX_OBSTACLE, TA_INHERIT) |
-| Message buffer | 12 | | 1 (256 B) | 1 (32 B) | | | |
+| Message buffer | 12 | | 3 (256 B, 384 B, 48 B) | 1 (32 B) | | | |
 | Cyclic handler | 12 | 1 | | | | | |
 | Interrupt handler | - | 1 (IO_IRQ_BANK0) | | | | | |
 

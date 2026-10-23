@@ -55,7 +55,7 @@ the Python standard library.
 
 | ID | What is tested | Requirement | Steps | Pass criterion |
 |---|---|---|---|---|
-| B1 | rates and integrity on the wire | NFR6, FR20, FR21 | `python3 tools/telem_bench.py --host <laptop IP> --secs 60` | snapshot 5.0 +-0.1 Hz, heartbeat 1.0 +-0.05 Hz, 0 decode errors, 0 sequence gaps (the tool prints PASS/FAIL) |
+| B1 | rates and integrity on the wire | NFR6, FR20, FR21 | `python3 tools/telem_bench.py --host <laptop IP> --secs 60` | B1a snapshot 5.0 +-0.1 Hz and B1b heartbeat 1.0 +-0.05 Hz (each over the time it flowed), B1c 0 decode errors, B1d 0 sequence gaps, B1e no silence > 1 s anywhere in the window (the tool prints PASS/FAIL) |
 | B2 | message size (Week 13 item 3) | NFR28 | same 60 s run; record "payload total" B/s and frame sizes | snapshot 18 B, heartbeat 6 B, event 4 B, obstacle 10 B; record B/s next to the text baseline |
 | B3 | broker outage and recovery | FR22, NFR17, NFR18 | stop the broker 30 s, restart it; watch console and heartbeat | console shows MQTT_CONNECTING / BACKOFF with delays 1, 2, 4, 8, 10 s (never > 10 s); ONLINE again within 10 s + connect time after restart; next heartbeat reports the drop count |
 | B4 | Wi-Fi outage | FR22 | switch the hotspot off 30 s, then on | WIFI_CONNECTING while off, ONLINE again without a reset; no `[TEST]` / boot banner reprinted |
@@ -63,6 +63,7 @@ the Python standard library.
 | B6 | retained START after reconnect (Mosquitto only) | D-02 | `--send start N --retain`, then restart the car or the broker | START_GUARD rejection after each reconnect; the car never leaves S1 |
 | B7 | soak (A3 MQTT spike) | A3, NFR16 | demo image publishing for 10 min with `--secs 600` | no reset, 0 decode errors, sequence gaps = 0 |
 | B8 | timing isolation with real traffic | A15, NFR17 | test image while ONLINE to the broker; repeat S1-U10 and SH-U01 | cyclic 100 +-2 per s, SH-U04c still PASS |
+| B9 | silent link loss (no FIN, no ACKs) | FR22, Statechart 4 | demo image ONLINE, serial console open, `telem_bench.py --secs 120` running; switch the **laptop's** Wi-Fi off for 20 s, then on | console prints `mqtt: publishing stalled for 5 s, link lost` within 7 s of switching off; back-off delays never > 10 s; ONLINE again within 16 s of Wi-Fi on; 10 s `telem:` line shows `stalls 1`; bench B1e longest silence <= outage + 16 s |
 
 ## Results
 
@@ -76,4 +77,5 @@ Add a new row for every run. Never edit or delete old rows.
 | 2026-10-22 | fix | `3f3cdd6` | Claude (for Buddy 1) | - | commit message | Reconnect reports go straight to MBF_TELEM_OUT; TEST image waits for the terminal; S1 tests wait for radio init; new INFO lines (loop gap, U03, U07). |
 | 2026-10-22 | S1-U01..U10 (run 2) | `3f3cdd6` | Xavier | PASS 10/0 | `logs/2026-10-22_test_run2.txt` | Measured: loop 34 per s (about 29 ms: tk_dly_tsk(20) on the 10 ms tick, not the 20 ms in Rev B); longest gap between loops 30.4 ms incl. radio start-up; longest event post 37 us; cyclic 100 per s and telemetry loop 462 us under load. Run-1 failures in U01..U04 not reproduced, but start-up conditions changed (terminal open, radio up), so not proven fixed. |
 | 2026-10-22 | B1 (run 1) | `77fea7a` on hold/mqtt-bridge (bridge not in this branch) | Xavier | FAIL | `logs/2026-10-22_bench_b1_run1.txt` | 244 snapshots + 49 heartbeats, all decoded, 0 sequence gaps, 5.00 / 1.00 Hz while flowing; then the car stopped publishing after 48.8 s with the session open and a silent console. Bridge only counted failed publishes; lwIP drops a silent session after 90 s. Fix written (fix2), not applied or tested. |
-| | B2..B8 | | Xavier | NOT RUN | | needs the bridge change approved |
+| 2026-10-23 | merge | `10ca7c8` + fix2 merge | Claude (for Buddy 4, integration) | BUILD PASS | `docs/evidence/phase6_*` | Bridge `5b60564` + fix2 `fc3109f` merged into the unified branch with Phases 2-5; strong bridge symbols confirmed in the demo image; 62 host checks PASS; gate PASS. No hardware here: S1-U01..U10 on the merged image and B1 (fix2) NOT RUN. |
+| | B1 re-run (fix2), B2..B9 | | Xavier | NOT RUN | | run B1 against **Mosquitto** first (D-24: the laptop `mqtt_broker.py` is a stall suspect) |

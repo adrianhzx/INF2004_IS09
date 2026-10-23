@@ -1,0 +1,15 @@
+# Phase 6 bridge symbols (SMP=0 NET=lwip MQTT=1 demo image, 2026-10-23)
+10013d10 t bridge_poll
+100140e8 t connect_timeout
+10013c8c t link_lost
+100142e4 T mqtt_utk_bridge_attach
+10014314 T mqtt_utk_bridge_backoff_s
+10014308 T mqtt_utk_bridge_connected
+1001432c T mqtt_utk_bridge_pub_fail
+10014338 T mqtt_utk_bridge_stalls
+10016110 t telemetry_comms_task
+
+ 291638	      0	  21432	 313070	  4c6ee	mtk3pico_smp0_usb_cdc_wifi.elf
+ 347030	      0	  79252	 426282	  6812a	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+ 362542	      0	  79340	 441882	  6be1a	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+ 369118	      0	  83468	 452586	  6e7ea	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
