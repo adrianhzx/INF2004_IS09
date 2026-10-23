@@ -47,40 +47,71 @@ app_safety_bind (int32_t ctrl_tid, int32_t flg_ctrl_id,
 
 /* ---- helpers ------------------------------------------------------------- */
 
-void
+/* Single-core target: mask with an inline CPSID so the whole masked window
+   (save, RMW, restore) is a handful of SRAM-resident instructions with no call
+   into flash. SMP and host builds keep the app_hw_irq_save() path. */
+#if !defined(APP_HOST_TEST) && !TK_SUPPORT_SMP
+static inline uint32_t
+helper_irq_save (void)
+{
+    uint32_t primask;
+    __asm volatile("mrs %0, primask\n\tcpsid i" : "=r"(primask) : : "memory");
+    return primask;
+}
+
+static inline void
+helper_irq_restore (uint32_t primask)
+{
+    __asm volatile("msr primask, %0" : : "r"(primask) : "memory");
+}
+#else
+static inline uint32_t
+helper_irq_save (void)
+{
+    return app_hw_irq_save();
+}
+
+static inline void
+helper_irq_restore (uint32_t saved)
+{
+    app_hw_irq_restore(saved);
+}
+#endif
+
+APP_RAMFUNC void
 app_shared_bits_set (volatile uint16_t * p_word, uint16_t bits)
 {
-    uint32_t const saved = app_hw_irq_save();
+    uint32_t const saved = helper_irq_save();
     *p_word              = (uint16_t) (*p_word | bits);
     g_safety_helper_calls++;
-    app_hw_irq_restore(saved);
+    helper_irq_restore(saved);
 }
 
-void
+APP_RAMFUNC void
 app_shared_bits_clr (volatile uint16_t * p_word, uint16_t bits)
 {
-    uint32_t const saved = app_hw_irq_save();
+    uint32_t const saved = helper_irq_save();
     *p_word              = (uint16_t) (*p_word & (uint16_t) ~bits);
     g_safety_helper_calls++;
-    app_hw_irq_restore(saved);
+    helper_irq_restore(saved);
 }
 
-void
+APP_RAMFUNC void
 app_shared_bits_set8 (volatile uint8_t * p_byte, uint8_t bits)
 {
-    uint32_t const saved = app_hw_irq_save();
+    uint32_t const saved = helper_irq_save();
     *p_byte              = (uint8_t) (*p_byte | bits);
     g_safety_helper_calls++;
-    app_hw_irq_restore(saved);
+    helper_irq_restore(saved);
 }
 
-void
+APP_RAMFUNC void
 app_shared_bits_clr8 (volatile uint8_t * p_byte, uint8_t bits)
 {
-    uint32_t const saved = app_hw_irq_save();
+    uint32_t const saved = helper_irq_save();
     *p_byte              = (uint8_t) (*p_byte & (uint8_t) ~bits);
     g_safety_helper_calls++;
-    app_hw_irq_restore(saved);
+    helper_irq_restore(saved);
 }
 
 /* ---- stop path ----------------------------------------------------------- */

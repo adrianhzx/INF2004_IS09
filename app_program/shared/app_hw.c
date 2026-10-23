@@ -4,6 +4,7 @@
  */
 
 #include "app_hw.h"
+#include "app_port.h"
 
 #include <tk/tkernel.h> /* in_w/out_w/set_w/clr_w, DI/EI, RESETS_*, GPIO_*, PWM_* */
 
@@ -267,7 +268,7 @@ app_hw_pwm_pin (uint32_t pin)
 
 /* ---- Time -------------------------------------------------------------- */
 
-uint32_t
+APP_RAMFUNC uint32_t
 app_hw_time_us (void)
 {
     return (uint32_t) in_w(APP_TIMER_RAWL);

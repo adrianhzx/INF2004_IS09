@@ -1,0 +1,18 @@
+# Shared self-test, run A (first on-target run). Build: 07fb89b, make SMP=0 NET=lwip MQTT=1 TEST=1
+# Board: Pico W on Robo Pico, USB console COM9 (VS Code Serial Monitor), 2026-10-22.
+# PARTIAL transcript: the full console was not saved. Lines below are the ones
+# copied from the screen; the SH-U04c INFO line (window in us) was not captured.
+[TEST] SH-U04c FAIL  masked window <= 5 us (design: ~10 cycles)   (../app_program/shared/app_shared_test.c:157)
+[TEST] SH-U08a PASS  STOP_LATCH set by ISR request
+[TEST] SH-U08b PASS  first stop cause wins
+[TEST] SH-U08c PASS  controller in S7 within 50 ms of EVT_SAFE_STOP
+[TEST] shared SUMMARY 15 passed, 1 failed
+[TEST] === test run end ===
+wifi: joining "Xavier's phone" ...
+wifi: link status -> joined AP, waiting for IP (1)
+wifi: link status -> joined AP, no IP yet (2)
+wifi: link up, ip=10.143.10.118
+mqtt: connected to 10.143.10.211
+mqtt: subscribed to mtk3smp-pico/heartbeat
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 0"
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 1"

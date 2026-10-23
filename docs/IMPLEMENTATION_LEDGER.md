@@ -130,12 +130,12 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | Phase | Status | Commit |
 |---|---|---|
 | 0 Audit | DONE (this file, sections 0-4) | - |
-| 1 Shared foundation | DONE (host-verified, target-built, bench NOT RUN) | see section 6 |
+| 1 Shared foundation | DONE: host-verified; on-target SH-U01..U08 PASS 16/0 on 22 Oct after the SH-U04c SRAM fix (`0aafbaa`); HV bench items NOT RUN | section 6, testing/shared/TEST_LOG.md |
 | 2 Motion | DONE (host-verified, target-built, bench NOT RUN, disarmed) | see section 7 |
 | 3 Line + Barcode | DONE (host-verified, target-built, bench NOT RUN) | see section 8 |
 | 4 IMU | DONE (host-verified, target-built, bench NOT RUN) | see section 9 |
 | 5 Obstacle | DONE (host-verified, target-built, bench NOT RUN, outputs gated) | see section 10 |
-| 6 Wi-Fi/MQTT | NOT STARTED | |
+| 6 Wi-Fi/MQTT | IN PROGRESS (Buddy 1 branch merged 23 Oct): TelemetryCommsTask + host tests (62 PASS); on-target S1-U01..U10 PASS 10/0 on 22 Oct (`3f3cdd6`). Radio bridge in `mqtt_utk.c` (D-10) still NOT in this branch: bench B1 on the held bridge delivered every frame at the right rate, then stalled silently after 49 s; fix written there, not yet tested | testing/subsystem1/TEST_LOG.md |
 | 7 Integration | NOT STARTED | |
 | 8 Evidence | NOT STARTED | |
 

@@ -62,12 +62,35 @@ app_start_task (FP entry, PRI pri, UW prc, const char * name)
     return app_start_task_stack(entry, pri, (SZ) TASK_STACK_SIZE, name);
 }
 
+#if APP_TEST && defined(TM_CONSOLE_USB_CDC) && TM_CONSOLE_USB_CDC
+IMPORT UW tm_usb_state (void); /* lib/libtm usb_console.c: 3 = host has DTR */
+#define APP_TEST_CONSOLE_WAIT_MS 15000
+
+/* TEST image only: wait (bounded) until a serial terminal is open, so no
+   [TEST] line is printed before anyone is listening. */
+static void
+app_test_wait_console (void)
+{
+    INT waited = 0;
+
+    while ((tm_usb_state() < 3U) && (waited < APP_TEST_CONSOLE_WAIT_MS))
+    {
+        (void) tk_dly_tsk(100);
+        waited += 100;
+    }
+    (void) tk_dly_tsk(300); /* let the terminal settle */
+}
+#endif
+
 EXPORT INT
 usermain (void)
 {
     T_RVER   ver;
     uint32_t hw_ok;
 
+#if APP_TEST && defined(TM_CONSOLE_USB_CDC) && TM_CONSOLE_USB_CDC
+    app_test_wait_console();
+#endif
     tk_ref_ver(&ver);
     tm_printf((UB *) "\n=== IS09 autonomous car, micro T-Kernel on Pico W"
                      " (spec 0x%04x, product 0x%04x) ===\n",

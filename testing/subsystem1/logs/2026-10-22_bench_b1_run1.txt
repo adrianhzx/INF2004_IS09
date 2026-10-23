@@ -1,0 +1,40 @@
+# Bench B1, run 1. Firmware: hold/mqtt-bridge at 77fea7a (bridge change NOT in feat/revb-autonomous-integration),
+# demo image make SMP=0 NET=lwip MQTT=1. Broker: mqtt_broker.py on the laptop (10.143.10.211),
+# bench: tools/telem_bench.py from bbcaa13, run on the same laptop. 2026-10-22.
+#
+# Broker console, last frames before the stall (payload column omitted: the broker prints the
+# binary frames as text, which shows only as unreadable characters):
+16:39:33.853 is09/is09-car/snap
+16:39:33.917 is09/is09-car/hb
+16:39:34.058 is09/is09-car/snap
+16:39:34.263 is09/is09-car/snap
+16:39:34.468 is09/is09-car/snap
+16:39:34.673 is09/is09-car/snap
+16:39:34.878 is09/is09-car/snap
+16:39:34.939 is09/is09-car/hb
+16:39:35.083 is09/is09-car/snap
+16:39:46.506 [broker] 127.0.0.1 disconnected
+#
+# Bench output, verbatim:
+C:\Users\xavie>python C:\Downloads\telem_bench.py --host 127.0.0.1 --secs 60
+
+=== 60.2 s on 2026-10-22 16:39:46 ===
+snap   244 frames    4.05 Hz    4392 B     73.0 B/s
+hb      49 frames    0.81 Hz     294 B      4.9 B/s
+evt      0 frames    0.00 Hz       0 B      0.0 B/s
+obs      0 frames    0.00 Hz       0 B      0.0 B/s
+payload total 4686 B = 77.9 B/s (MQTT/TCP/IP headers not included)
+last heartbeat: up 97 s, conn ONLINE, dropped 0
+
+[FAIL] B1a snapshot rate 5.0 +-0.1 Hz  (4.05 Hz)
+[FAIL] B1b heartbeat rate 1.0 +-0.05 Hz  (0.81 Hz)
+[PASS] B1c every frame decodes  (0 errors)
+[PASS] B1d no snapshot or heartbeat lost  (0 snapshot gaps, 0 heartbeat gaps)
+#
+# Analysis (Claude, for Buddy 1): the car's last frame reached the broker at 16:39:35.083 and the
+# window ended 16:39:46.5, so frames flowed for 48.8 s: 244 / 48.8 = 5.00 Hz and 49 / 48.8 = 1.00 Hz.
+# The rates were correct; the car then stopped publishing with the MQTT session still open and
+# nothing on its console. Cause in the bridge: failed publishes were only counted, and lwIP drops a
+# silent session only after 1.5 x keep-alive = 90 s. Why acknowledgements stopped (hotspot, laptop
+# or car) was not determined. A fix was written (fix2 bundle, hold/mqtt-bridge) but is NOT applied
+# or tested.
