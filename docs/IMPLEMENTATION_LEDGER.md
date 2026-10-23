@@ -131,7 +131,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 |---|---|---|
 | 0 Audit | DONE (this file, sections 0-4) | - |
 | 1 Shared foundation | DONE (host-verified, target-built, bench NOT RUN) | see section 6 |
-| 2 Motion | NOT STARTED | |
+| 2 Motion | DONE (host-verified, target-built, bench NOT RUN, disarmed) | see section 7 |
 | 3 Line + Barcode | NOT STARTED | |
 | 4 IMU | NOT STARTED | |
 | 5 Obstacle | NOT STARTED | |
@@ -193,3 +193,47 @@ GP0-GP3 through `app_gpio_irq_attach`, 10 ms MotionControlTask that checks
 `g_stop_latch` first, PID (integer), MOVE/TURN/FOLLOW/BRAKE, stall/stale/
 heartbeat faults, `S2-U` on-target tests and host tests for the PID/odometry
 maths. Gate: build + host + review, then STOP for team bench items HV-3/HV-4.
+
+## 7. Phase 2 record (subsystem2 - motion and encoders, Buddy 2)
+
+### Files written
+
+| Path | Role |
+|---|---|
+| `app_program/subsystem2/motion_core.[ch]` | pure executor: BRAKED/FOLLOWING/MOVING/TURNING/STOP_LATCHED, latch-first ordering, heartbeat/stale-line/stall/glitch guards, one command per cycle, Q8 speed PID + feed-forward, straightness correction, pivot turns with `until_line`, wrap-safe signed odometry, status view with cycle tag |
+| `app_program/subsystem2/drv_motor.[ch]` | Robo Pico PWM: slices 4/5 at 20 kHz (TOP 6249), brake = both compares 0, pins routed to PWM only after compares are 0, forward = A pulsed / B low |
+| `app_program/subsystem2/drv_encoder.[ch]` | 4x quadrature table decode on GP0-GP3 through the dispatcher; ISR exports `g_enc_ticks_l/r` (uint16, +1/-1 wrap), per-wheel edge interval (uint16, 32 us units, saturating), saturating glitch byte |
+| `app_program/subsystem2/task_motion.c` | 10 ms task: latch byte load first -> brake -> read ISR words -> dequeue one record (TMO_POL) -> core -> PWM -> flush -> SafeStop/fault -> publish two words + events |
+| `app_program/subsystem2/subsystem2.[ch]`, `subsystem2_test.c` | MBF_MOTION_CMD (32 B), driver bring-up in brake, encoder attach, task start, S2-U01..06 |
+| `app_program/shared/app_cal.h` | motion gains/limits (all `[TBC]`), `APP_CAL_ENC_STOP_MS`, `APP_CAL_ENC_GLITCH_MAX` |
+| `testing/host/test_motion.c` | 56 checks with a simulated car |
+
+### Decisions recorded
+
+* Speed is measured from the inter-edge interval (A4), not ticks per cycle:
+  with the provisional 20 ticks/rev and 65 mm wheel one tick is ~10.2 mm, so
+  at 20 cm/s only ~0.2 ticks arrive per 10 ms. A5 risk stands: a 90 deg
+  pivot is ~11 ticks; `until_line` is the real end condition on the track.
+* Stall is counted only when the applied |PWM| is >= `APP_CAL_PWM_STALL_PCT`
+  (a controller that legitimately drives 0 % is not a stall).
+* A core-detected hazard brakes in the same cycle and the task then calls
+  `app_safe_stop_request(cause)`; the latch propagates to every other task
+  through the normal path. Guarded recovery leaves STOP_LATCHED only to BRAKED.
+* `turn_ticks` limits the angle to 360 deg per command (uint32 arithmetic).
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `make SMP=0 NET=lwip MQTT=1 -j8` | PASS 0 app warnings, text 330680 / data 124 / bss 78532 |
+| `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 335812 / 124 / 78552 |
+| `make SMP=0 -j8`, `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS |
+| `./testing/host/test_motion` | 56 passed, 0 failed |
+| `./testing/host/test_shared` (regression) | 418 passed, 0 failed |
+| `tools/barr-c/check_app.sh` | PASS (subsystem2 sources and headers added to clang-tidy) |
+| Linked sizes | `g_s2_core` 64 B (task-private), ISR words 2+2+1 B + 2x20 B wheel state, `docs/evidence/phase2_sizes.txt` |
+| On-target S2-U01..06, HV-3/4/9, NFR1, NFR8/NFR9 accuracy | **NOT RUN** |
+
+Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, NFR1 NOT MEASURED, motion
+still disarmed (`APP_CAL_MOTION_ARMED = 0`). Next: PHASE 3 (subsystem3, line
+sensing + barcode).

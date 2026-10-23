@@ -1,0 +1,9 @@
+g_enc_glitches          1 B
+g_enc_ticks_l           2 B
+g_enc_ticks_r           2 B
+g_line_state            4 B
+g_motion_status_a       4 B
+g_motion_status_b       4 B
+g_wheel_l              20 B
+g_wheel_r              20 B
+g_s2_core              64 B

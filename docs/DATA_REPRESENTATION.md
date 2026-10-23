@@ -34,7 +34,9 @@ MissionStatus: 12 meaningful bits in a 32-bit word (3+3+2 adopted + 4 seq).
 | Field | W / R | Range | Bits | Position | Phys | Units |
 |---|---|---|---|---|---|---|
 | enc_ticks_L / R | EncoderIsr / Motion | 0..65535 wrap | 16 each | two aligned halfwords | 2 B + 2 B | quadrature edges, wrap-safe delta |
-| ticks per 10 ms | Motion private | 0..255 (A4 PROVISIONAL) | 8 | private | | saturating |
+| ticks per 10 ms | Motion private (signed delta per cycle) | +-32767 derived | 16 (int32 working) | private | | wrap-safe uint16 subtraction then sign decode |
+| enc interval L / R | EncoderIsr / Motion | 0..65535 x 32 us (0 = none, saturating) | 16 each | own halfword | 2 B + 2 B | 32 us units; speed = um_per_tick x 100 / us |
+| enc glitches | EncoderIsr / Motion | 0..255 saturating | 8 | own byte | 1 B | invalid 2-bit transitions; >= APP_CAL_ENC_GLITCH_MAX -> ENCODER_FAULT |
 | speed_L / speed_R | Motion / IMU, Controller, Comms | 0..127 | 7 each | word A 0-6, 7-13 | 4 B | cm/s magnitude |
 | distance_mm | Motion / IMU, Comms | -32768..32767 | 16 | word A 14-29 | | mm, signed two's complement |
 | cycle_tag (D-04) | Motion / readers | 0..3 | 2 | word A 30-31 and word B 3-4 | | must match for a coherent pair |

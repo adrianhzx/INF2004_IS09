@@ -9,19 +9,28 @@ CFLAGS  := -std=c99 -pedantic -Wall -Wextra -Wshadow -Wswitch-default \
            -Werror=implicit-function-declaration -Werror=parentheses \
            -O1 -g -DAPP_HOST_TEST=1 -I. -I$(SHARED)
 
+S2      := ../../app_program/subsystem2
+CFLAGS  += -I$(S2)
+
 SRCS := test_shared.c host_port.c \
         $(SHARED)/app_safety.c $(SHARED)/app_ipc.c $(SHARED)/app_telemetry.c \
         $(SHARED)/app_blackboard.c
+MOTION_SRCS := test_motion.c host_port.c $(SHARED)/app_blackboard.c \
+        $(S2)/motion_core.c $(S2)/drv_encoder.c
 
-all: test_shared
+all: test_shared test_motion
 
 test_shared: $(SRCS) $(wildcard $(SHARED)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(SRCS)
 
-run: test_shared
+test_motion: $(MOTION_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S2)/*.h) host_port.h
+	$(CC) $(CFLAGS) -o $@ $(MOTION_SRCS)
+
+run: test_shared test_motion
 	./test_shared
+	./test_motion
 
 clean:
-	rm -f test_shared vectors.txt
+	rm -f test_shared test_motion vectors.txt
 
 .PHONY: all run clean

@@ -71,6 +71,12 @@ ID  tk_cre_tsk (const T_CTSK * pk);
 ER  tk_sta_tsk (ID tskid, INT stacd);
 INT tm_printf (const UB * fmt, ...);
 
+/* MMIO stubs used by target drivers compiled on the host */
+#define GPIO_IN 0xD0000004U
+uint32_t        in_w (uint32_t addr);
+void            out_w (uint32_t addr, uint32_t data);
+extern uint32_t host_gpio_in; /* value returned by in_w(GPIO_IN) */
+
 /* host controls */
 extern ID       host_current_tid;   /* what tk_get_tid returns */
 extern uint32_t host_flg_set_count; /* tk_set_flg calls */

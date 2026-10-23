@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "app_gpio_irq.h"
 #include "app_hw.h"
 
 ID       host_current_tid     = 1;
@@ -158,4 +159,28 @@ app_hw_gpio_input (uint32_t pin, app_gpio_pull_t pull)
 {
     (void) pin;
     (void) pull;
+}
+
+uint32_t host_gpio_in = 0U;
+
+uint32_t
+in_w (uint32_t addr)
+{
+    return (GPIO_IN == addr) ? host_gpio_in : 0U;
+}
+
+void
+out_w (uint32_t addr, uint32_t data)
+{
+    (void) addr;
+    (void) data;
+}
+
+bool
+app_gpio_irq_attach (uint32_t pin, uint32_t event_mask,
+                     app_gpio_irq_cb_t callback)
+{
+    (void) pin;
+    (void) event_mask;
+    return (0 != callback);
 }

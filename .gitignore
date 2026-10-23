@@ -27,3 +27,4 @@ config/wifi_secrets.h
 
 # host test binary and generated vectors
 testing/host/test_shared
+testing/host/test_motion

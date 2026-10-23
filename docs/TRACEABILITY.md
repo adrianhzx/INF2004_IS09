@@ -18,7 +18,7 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR5 | decode A/B/C/D or invalid | B3 | Phase 3 (Code 39, measured symbology) | H + C | NOT RUN |
 | FR6 | execute nav command at junction | ctrl + B2 | Phase 7 | C | NOT RUN |
 | FR7 | invalid barcode: continue + report | B3 + ctrl | Phase 3/7; event `APP_TEV_BARCODE` exists | C | NOT RUN |
-| FR8 | move/turn/stop by encoders, signal completion | B2 | Phase 2; contract: `MotionCmd`, `done_seq`, `EVT_MOTION_DONE` (H-BB-09..11 PASS) | B + C | NOT RUN |
+| FR8 | move/turn/stop by encoders, signal completion | B2 | `subsystem2/motion_core.c` MOVE/TURN/BRAKE, `done_seq`+`EVT_MOTION_DONE` (H-MO-23..33 PASS on a simulated car) | H PASS, B (HV-3/4) + C NOT RUN | PARTIAL |
 | FR9-FR12 | hump detect / peak / run max / motion class | B4 | Phase 4; `ImuState` word (H-BB-12..14 PASS) | B + C | NOT RUN |
 | FR13 | IMU collision -> latched stop | B4 + shared | `app_safe_stop_request(COLLISION)` path (H-SF-04..07, SH-U08) | H PASS, T NOT RUN, C NOT RUN | PARTIAL |
 | FR14-FR19 | obstacle detect/stop/profile/avoid/reacquire | B5 + ctrl | Phase 5/7; `ObstacleProfile` words (H-BB-15..19 PASS) | B + C | NOT RUN |
@@ -27,8 +27,8 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR22 | auto reconnect while autonomy continues | B1 | Phase 6 | NOT RUN | NOT RUN |
 | FR23 | command topic, START/STOP only | B1 + ctrl | `app_cmd_frame_decode` + `remote_cmd()` guard (H-CMD-01..10 PASS) | H PASS | PARTIAL |
 | FR24 | local START run / STOP latched stop | ctrl | `vehicle_controller.c` button ISR + debounce + S7 | T (SH-U08 NOT RUN), B (HV-6) | PARTIAL |
-| FR25 | brake + latch on stall / stale / timeouts, report cause | all | cause codes + `app_safe_stop_request`; producers in Phases 2-7 | H PASS (contract) | PARTIAL |
-| NFR1 | brake <= 20 ms after latch | B2 | Phase 2 motion cycle; latch check first | B (HV-9) | NOT RUN |
+| FR25 | brake + latch on stall / stale / timeouts, report cause | all | motion producers STALL/STALE_LINE/CTRL_HEARTBEAT/ENCODER (H-MO-36..41 PASS); controller timeouts Phase 7 | H PASS | PARTIAL |
+| NFR1 | brake <= 20 ms after latch | B2 | `task_motion.c` brakes on the latch byte before any other work, 10 ms cycle (H-MO-20 same-cycle brake) | B (HV-9) | NOT RUN (design margin: 10 ms cycle + handler latency) |
 | NFR2 | brake cmd <= 250 ms inside D_STOP | B5 + ctrl | Phase 5/7 | C | NOT RUN ([TBC] clearance) |
 | NFR3 | line update every 10 ms | B3 | CYC_10MS wake slot LINE (SH-U01) | T | NOT RUN |
 | NFR4 | barcode edge stamp error <= 10 % | B3 | 1 us timer, 8 us units (ledger S6 analysis) | B | NOT RUN (A6) |

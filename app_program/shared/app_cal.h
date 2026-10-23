@@ -79,6 +79,34 @@
     20U /* full quadrature edges per wheel rev [TBC, HV-3] */
 #define APP_CAL_ENC_STALL_MS                                                   \
     300U /* no ticks while driving for this duration -> STALL [TBC] */
+#define APP_CAL_ENC_STOP_MS                                                    \
+    300U /* no edge for this duration -> measured speed 0 [TBC] */
+#define APP_CAL_ENC_GLITCH_MAX                                                 \
+    50U /* invalid quadrature transitions per run -> ENCODER_FAULT [TBC] */
+
+/* ---- Motion control (Buddy 2). All gains Q8 fixed point (256 = 1.0). --- */
+#define APP_CAL_PWM_MAX_PCT                                                    \
+    80U /* |PWM| ceiling until HV-4 current check [TBC] */
+#define APP_CAL_PWM_MIN_PCT                                                    \
+    18U /* below this the motor does not turn [TBC, HV-4] */
+#define APP_CAL_PWM_STALL_PCT                                                  \
+    30U /* stall watch only above this demand [TBC]                            \
+         */
+#define APP_CAL_FF_Q8_PER_CM_S                                                 \
+    640U /* feed-forward: PWM% x256 per cm/s (2.5 %/cm/s) [TBC] */
+#define APP_CAL_SPEED_KP_Q8 512U          /* 2.0 %/cm/s [TBC] */
+#define APP_CAL_SPEED_KI_Q8 64U           /* 0.25 %/(cm/s x cycle) [TBC] */
+#define APP_CAL_SPEED_I_MAX_Q8 (30 * 256) /* integral clamp = 30 % PWM */
+#define APP_CAL_STRAIGHT_KP_Q8                                                 \
+    768U /* 3.0 % per tick of L-R difference [TBC]                             \
+          */
+#define APP_CAL_STEER_GAIN_Q8                                                  \
+    128U /* FOLLOW: 0.5 % PWM per steer unit [TBC]                             \
+          */
+#define APP_CAL_TURN_UNTIL_LINE_MIN_PCT                                        \
+    50U /* until_line may finish after this % of the angle */
+#define APP_CAL_TURN_UNTIL_LINE_MAX_PCT                                        \
+    150U /* ... and aborts at this % if no line */
 
 /* ---- Line sensing ------------------------------------------------------ */
 #define APP_CAL_IR_MIN_CONTRAST 400U /* min (black - white) ADC span [TBC] */
