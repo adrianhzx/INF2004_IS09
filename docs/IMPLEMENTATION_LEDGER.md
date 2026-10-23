@@ -132,7 +132,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 0 Audit | DONE (this file, sections 0-4) | - |
 | 1 Shared foundation | DONE (host-verified, target-built, bench NOT RUN) | see section 6 |
 | 2 Motion | DONE (host-verified, target-built, bench NOT RUN, disarmed) | see section 7 |
-| 3 Line + Barcode | NOT STARTED | |
+| 3 Line + Barcode | DONE (host-verified, target-built, bench NOT RUN) | see section 8 |
 | 4 IMU | NOT STARTED | |
 | 5 Obstacle | NOT STARTED | |
 | 6 Wi-Fi/MQTT | NOT STARTED | |
@@ -237,3 +237,55 @@ maths. Gate: build + host + review, then STOP for team bench items HV-3/HV-4.
 Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, NFR1 NOT MEASURED, motion
 still disarmed (`APP_CAL_MOTION_ARMED = 0`). Next: PHASE 3 (subsystem3, line
 sensing + barcode).
+
+## 8. Phase 3 record (subsystem3 - line sensing and barcode, Buddy 3)
+
+### Files written
+
+| Path | Role |
+|---|---|
+| `app_program/subsystem3/line_core.[ch]` | pure line algorithm: running black/white references (expand at once, relax 1 LSB/cycle) with the IR_CONTRAST check, `line_error = n_centre - n_left` (+ = line right), Q8 PD steer clamped +-100, hysteretic JUNCTION (T_JUNC, once, re-armed) / LOST (T_LOST) / FOUND, continuous `on_line`, 4-bit seq |
+| `app_program/subsystem3/barcode_core.[ch]` | pure Code 39 decoder: DISARMED / WAIT_QUIET / CAPTURING, glitch (< T_GLITCH) folded into the running element, quiet zone or >= T_QUIET gap ends a capture, < N_MIN elements = stray (silent), min/max threshold with a 1.5..6.0 wide:narrow ratio check, forward then reversed pattern match, '*' at both ends, narrow inter-character gaps, A/B/C/D -> LEFT/RIGHT/STRAIGHT/UTURN, Z and anything else -> INV_NO_MATCH, 65th element or ring overflow -> INV_OVERFLOW |
+| `app_program/subsystem3/drv_line_adc.[ch]` | task-owned polled one-shot ADC (START_ONCE, READY poll bounded, ERR check) on GP26/GP27; pads set to analogue |
+| `app_program/subsystem3/task_line.c` | LineSensingTask, priority 4, woken by CYC_10MS slot LINE: two conversions (last sample held on error), core step, one aligned store of `g_line_state`, FLG_CTRL JUNCTION / LINE_LOST / LINE_FOUND + telemetry event, IR_CONTRAST fault set/clear (diagnostic) |
+| `app_program/subsystem3/task_barcode.c` | BarcodeEdgeIsr via the shared dispatcher (stamp delta -> `app_edge_ring_push` -> `tk_set_flg`), BarcodeDecodeTask priority 7 waiting on FLG_BARCODE (EDGE_AVAIL / ARM / DISARM) with the T_QUIET timeout only while capturing; publishes `g_barcode_byte`, EVT_BARCODE, telemetry event, BARCODE_OVERFLOW fault; GP7 IRQ enabled only while armed |
+| `app_program/subsystem3/subsystem3.[ch]`, `subsystem3_test.c` | FLG_BARCODE, ADC and ISR bring-up (DISARMED), two tasks, S3-U01..06 (barcode path driven by forced GP7 interrupts) |
+| `config/config_device.h` | `DEVCNF_USE_ADC 0`: the kernel ADC device driver is off so subsystem3 owns the converter (TEAM.md section 3 decision closed) |
+| `app_program/shared/app_cal.h` | `APP_CAL_IR_DARK_IS_HIGH`, `APP_CAL_LINE_*`, `APP_CAL_BC_*` (all `[TBC]` until HV-10/HV-11) |
+| `testing/host/test_line.c` | 114 checks (line_core + barcode_core) |
+
+### Decisions recorded
+
+* ADC ownership: task-owned polled conversion, kernel `adca` driver OFF
+  (D-16). Two one-shot conversions take ~4 us total at 48 MHz ADC clock; the
+  kernel device would have added a device-open path and a driver task for no
+  benefit, and `DEVCNF_USE_ADC` is a documented config switch, not a kernel
+  source edit.
+* Barcode element widths are kept in 8 us units (uint16) like the EdgeRing
+  entry, not microseconds: a microsecond uint16 saturates at 65 ms, which a
+  wide bar reaches below ~14 cm/s (found by the host test before commit).
+* T_QUIET = 150 ms sets the slowest decodable speed at 6 cm/s (wide bar
+  9 mm). Recorded in `testing/subsystem3/TEST_LOG.md` for the bench team.
+* The ISR does not read the sensor level for decoding; elements alternate
+  from the first edge after a quiet zone, so decoding is independent of the
+  DOUT polarity (level is still stored in the ring entry for HV-11).
+* Decoding is pattern-exact (all 29 elements must classify); no
+  error-correcting guesswork, so an unreadable code is reported as
+  INV_NO_MATCH (FR7) rather than mis-steering the car.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `make SMP=0 NET=lwip MQTT=1 -j8` | PASS 0 app warnings, text 332784 / data 124 / bss 78860 |
+| `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 339792 / 124 / 78880 |
+| `make SMP=0 -j8`, `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings |
+| `./testing/host/test_line` | 114 passed, 0 failed |
+| `./testing/host/test_shared`, `./testing/host/test_motion` (regression) | 418 / 56 passed, 0 failed |
+| `tools/barr-c/check_app.sh` | PASS (subsystem3 cores, drv_line_adc.h and test_line.c added to clang-tidy) |
+| Linked sizes | `g_s3_line` 20 B, `g_s3_bc` 148 B (64 x 2 B widths + state), `g_edge_ring` 132 B, `g_line_state` 4 B, `g_barcode_byte` 1 B, `line_core_step` 732 B text, `docs/evidence/phase3_sizes.txt` |
+| On-target S3-U01..06, HV-10, HV-11, NFR3, NFR4 | **NOT RUN** |
+
+Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, IR polarity and
+references `[TBC]` (HV-10), barcode edge timing NOT MEASURED (HV-11). Next:
+PHASE 4 (subsystem4, IMU).

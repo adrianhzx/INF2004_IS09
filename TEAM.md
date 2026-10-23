@@ -53,7 +53,7 @@ subsystem's folder.** Shared files (`app_program/app_main.c`, `app.h`,
 | Peripheral | Owner subsystem | Owning task | Pins |
 |---|---|---|---|
 | I2C0 | 4 | ImuTask (own driver in `subsystem4/drv_*`, kernel I2C driver stays OFF) | GP4, GP5 |
-| ADC | 3 | LineSensingTask (decision Phase 3: kernel `adca` device vs task-owned polled conversion) | GP26, GP27 (GP28 reserved) |
+| ADC | 3 | LineSensingTask, task-owned polled one-shot driver `subsystem3/drv_line_adc.c`; kernel ADC device OFF (`DEVCNF_USE_ADC 0`, D-16) | GP26, GP27 (GP28 reserved) |
 | PWM slices 4, 5 | 2 | MotionControlTask | GP8-GP11 |
 | PWM slice 7 (ch B) | 5 | ObstacleScanTask | GP15 |
 | PWM slice 3 (ch A) | shared | VehicleControllerTask | GP22 |

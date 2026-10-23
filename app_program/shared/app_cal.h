@@ -110,6 +110,23 @@
 
 /* ---- Line sensing ------------------------------------------------------ */
 #define APP_CAL_IR_MIN_CONTRAST 400U /* min (black - white) ADC span [TBC] */
+#define APP_CAL_IR_DARK_IS_HIGH                                                \
+    1 /* 1: black line reads a HIGHER ADC value [TBC, HV-10] */
+#define APP_CAL_LINE_DARK_PCT 50U /* normalised >= this = dark [TBC] */
+#define APP_CAL_LINE_KP_Q8 256U   /* steer = Kp*error + Kd*d(error) [TBC] */
+#define APP_CAL_LINE_KD_Q8 64U
+#define APP_CAL_LINE_CAL_DECAY                                                 \
+    1U /* running min/max relax by this many LSB per cycle */
+#define APP_CAL_LINE_INIT_WHITE                                                \
+    1000U /* default references until calibrated [TBC] */
+#define APP_CAL_LINE_INIT_BLACK 3000U
+
+/* ---- Barcode (Code 39, measured 3:1, see ledger S6) --------------------- */
+#define APP_CAL_BC_ELEMENTS 29U /* *, one character, * with two gaps */
+#define APP_CAL_BC_N_MIN 20U    /* fewer at quiet = stray mark, silent */
+#define APP_CAL_BC_RATIO_MIN_Q8                                                \
+    384U /* wide/narrow must be >= 1.5 to classify */
+#define APP_CAL_BC_RATIO_MAX_Q8 1536U /* ... and <= 6.0 */
 
 /* ---- Obstacle ---------------------------------------------------------- */
 #define APP_CAL_D_STOP_CM                                                      \

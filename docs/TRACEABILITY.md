@@ -11,13 +11,13 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 
 | ID | Requirement (short) | Owner | Implementation | Test | Status (Phase 1) |
 |---|---|---|---|---|---|
-| FR1 | line following | B3 + B2 | Phase 3 + Phase 2 | C | NOT RUN |
-| FR2 | line loss + bounded search | B3 + ctrl | Phase 3 + Phase 7 | C | NOT RUN |
-| FR3 | junction detection | B3 | Phase 3 | C | NOT RUN |
-| FR4 | barcode detection while moving | B3 | Phase 3 (`g_edge_ring`, dispatcher GP7) | C | NOT RUN (ring + dispatcher: H-ER PASS) |
-| FR5 | decode A/B/C/D or invalid | B3 | Phase 3 (Code 39, measured symbology) | H + C | NOT RUN |
+| FR1 | line following | B3 + B2 | `line_core.c` error/steer (H-LN-09..12) feeding `motion_core` FOLLOW (H-MO) | C | NOT RUN (host logic PASS; HV-10 polarity pending) |
+| FR2 | line loss + bounded search | B3 + ctrl | LOST after T_LOST, FOUND on return (H-LN-19..23); search = Phase 7 | C | NOT RUN (host logic PASS) |
+| FR3 | junction detection | B3 | both-dark >= T_JUNC, once, re-armed (H-LN-14..18) | C | NOT RUN (host logic PASS) |
+| FR4 | barcode detection while moving | B3 | GP7 ISR -> `g_edge_ring` -> BarcodeDecodeTask (`task_barcode.c`), S3-U05 forced-edge path | T | NOT RUN (H-ER + H-BC PASS) |
+| FR5 | decode A/B/C/D or invalid | B3 | `barcode_core_decode` Code 39, forward + reversed, 3 speeds (H-BC-01..08) | H + C | HOST PASS; target NOT RUN |
 | FR6 | execute nav command at junction | ctrl + B2 | Phase 7 | C | NOT RUN |
-| FR7 | invalid barcode: continue + report | B3 + ctrl | Phase 3/7; event `APP_TEV_BARCODE` exists | C | NOT RUN |
+| FR7 | invalid barcode: continue + report | B3 + ctrl | INV_NO_MATCH / INV_OVERFLOW published with seq + `APP_TEV_BARCODE` (H-BC-17, 20, 21); controller reaction = Phase 7 | C | NOT RUN (host PASS) |
 | FR8 | move/turn/stop by encoders, signal completion | B2 | `subsystem2/motion_core.c` MOVE/TURN/BRAKE, `done_seq`+`EVT_MOTION_DONE` (H-MO-23..33 PASS on a simulated car) | H PASS, B (HV-3/4) + C NOT RUN | PARTIAL |
 | FR9-FR12 | hump detect / peak / run max / motion class | B4 | Phase 4; `ImuState` word (H-BB-12..14 PASS) | B + C | NOT RUN |
 | FR13 | IMU collision -> latched stop | B4 + shared | `app_safe_stop_request(COLLISION)` path (H-SF-04..07, SH-U08) | H PASS, T NOT RUN, C NOT RUN | PARTIAL |
@@ -30,8 +30,8 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR25 | brake + latch on stall / stale / timeouts, report cause | all | motion producers STALL/STALE_LINE/CTRL_HEARTBEAT/ENCODER (H-MO-36..41 PASS); controller timeouts Phase 7 | H PASS | PARTIAL |
 | NFR1 | brake <= 20 ms after latch | B2 | `task_motion.c` brakes on the latch byte before any other work, 10 ms cycle (H-MO-20 same-cycle brake) | B (HV-9) | NOT RUN (design margin: 10 ms cycle + handler latency) |
 | NFR2 | brake cmd <= 250 ms inside D_STOP | B5 + ctrl | Phase 5/7 | C | NOT RUN ([TBC] clearance) |
-| NFR3 | line update every 10 ms | B3 | CYC_10MS wake slot LINE (SH-U01) | T | NOT RUN |
-| NFR4 | barcode edge stamp error <= 10 % | B3 | 1 us timer, 8 us units (ledger S6 analysis) | B | NOT RUN (A6) |
+| NFR3 | line update every 10 ms | B3 | CYC_10MS wake slot LINE, `s3_line_cycle` (S3-U02, S3-U03) | T | NOT RUN |
+| NFR4 | barcode edge stamp error <= 10 % | B3 | dispatcher stamp at 1 us, stored in 8 us units (0.27 % of a 3 ms narrow bar); dispatcher latency is the real error term | B (HV-11) | NOT RUN (A6) |
 | NFR5 | US trigger > 60 ms, echo timeout 30 ms | B5 | `APP_CAL_T_US_TRIGGER_PERIOD_MS`, `APP_ECHO_WIDTH_MAX_US` | T | NOT RUN |
 | NFR6 | 1 s heartbeat, 200 ms snapshot | B1 | Phase 6 | bench | NOT RUN |
 | NFR7-NFR9, NFR15, NFR19 | thresholds [TBC] | - | - | - | BLOCKED (threshold TBC) |

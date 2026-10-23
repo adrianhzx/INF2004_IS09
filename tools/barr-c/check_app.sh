@@ -39,9 +39,11 @@ SRC="app_program/shared/app_safety.c app_program/shared/app_ipc.c app_program/sh
      app_program/shared/app_imu.h app_program/shared/app_obstacle.h app_program/shared/app_telemetry.h app_program/shared/app_data.h \
      app_program/shared/app_ipc.h app_program/shared/app_safety.h testing/host/test_shared.c testing/host/host_port.c \
      app_program/subsystem2/motion_core.c app_program/subsystem2/motion_core.h app_program/subsystem2/drv_encoder.c \
-     app_program/subsystem2/drv_encoder.h app_program/subsystem2/drv_motor.h testing/host/test_motion.c"
-TIDY_OUT=$(clang-tidy --quiet $SRC -- -x c -std=c99 -Wall -DAPP_HOST_TEST=1 -Itesting/host -Iapp_program/shared -Iapp_program/subsystem2 2>&1 | grep -E "warning:|error:" | grep -v "unused-macros" || true)
+     app_program/subsystem2/drv_encoder.h app_program/subsystem2/drv_motor.h testing/host/test_motion.c \
+     app_program/subsystem3/line_core.c app_program/subsystem3/line_core.h app_program/subsystem3/barcode_core.c \
+     app_program/subsystem3/barcode_core.h app_program/subsystem3/drv_line_adc.h testing/host/test_line.c"
+TIDY_OUT=$(clang-tidy --quiet $SRC -- -x c -std=c99 -Wall -DAPP_HOST_TEST=1 -Itesting/host -Iapp_program/shared -Iapp_program/subsystem2 -Iapp_program/subsystem3 2>&1 | grep -E "warning:|error:" | grep -v "unused-macros" || true)
 if [ -n "$TIDY_OUT" ]; then echo "$TIDY_OUT"; echo "FAIL: clang-tidy findings"; exit 1; fi
 echo "(no clang-tidy findings on host-buildable sources and shared headers)"
-echo "NOTE: target-only sources (app_hw.c, app_gpio_irq.c, vehicle_controller.c, app_shared_test.c, app_main.c, subsystemN*.c) need the kernel include tree; they are gated by the target build's APP_CFLAGS and by manual review (docs/BARR_C_REVIEW.md)."
+echo "NOTE: target-only sources (app_hw.c, app_gpio_irq.c, vehicle_controller.c, app_shared_test.c, app_main.c, subsystemN*.c, task_*.c, drv_line_adc.c) need the kernel include tree; they are gated by the target build's APP_CFLAGS and by manual review (docs/BARR_C_REVIEW.md)."
 echo "OK: BARR-C:2018 application gates passed"

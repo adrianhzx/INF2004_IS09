@@ -16,6 +16,8 @@ is pre-filled as passed.
 | HV-7 | **Servo pulse limits**: at battery voltage, find the 0 deg and 180 deg pulse widths without stalling against the mechanical stop; time a 30 deg step with a scope (A11). | Limits entered in `app_cal.h`; settle time recorded | Phase 5 scan limits | Buddy 5 | NOT RUN |
 | HV-8 | **Supply under load (A14)**: motors + servo + Wi-Fi publishing; log resets for 50 start-stop cycles; measure Grove 3V3 current. | No reset; < 300 mA | demo readiness | Integration owner | NOT RUN |
 | HV-9 | **NFR1 brake latency**: logic analyser on GP21 (STOP) and GP8-GP11; press STOP while driving on blocks. | Motor pins in brake pattern <= 20 ms after the STOP edge, 20 trials | NFR1 PASS claim | Buddy 2 | NOT RUN |
+| HV-10 | **IR line sensor polarity and references (A7)**: with the Phase 3 TEST image on the console (`s3_line_raw`), hold each line sensor over the white floor and over the black tape. | Black reading > white reading by >= 400 LSB on both channels (else set `APP_CAL_IR_DARK_IS_HIGH 0`); write the two values into `APP_CAL_LINE_INIT_WHITE/BLACK`. Then sweep the bracket so the tape drifts to the car's RIGHT: `line_error` must go positive. | `APP_CAL_IR_DARK_IS_HIGH`, FOLLOW steer sign | B3 Xu Zhiqiang | NOT RUN |
+| HV-11 | **Barcode edge timing (NFR4, A6)**: logic analyser on GP7 while the car is pushed over sample 1 at the planned speed; compare the analyser element widths with the `[TEST] S3-U05 INFO` ring contents / telemetry. | Every element within 10 % of the analyser; narrow bars >= 2 ms (else lower the speed or raise `APP_CAL_T_GLITCH_US` margin); wide bars < `APP_CAL_T_QUIET_MS`. | barcode in the run profile | B3 Xu Zhiqiang | NOT RUN |
 
 ## Why motion is disarmed in the shipped foundation
 

@@ -65,6 +65,11 @@ which use reserved bits. No adopted width changed.
 | EdgeRing entry | BarcodeEdgeIsr / BarcodeDecodeTask | level 0/1; delta 0..32767 x 8 us (262 ms) | 1+15 | bit 15, bits 0-14 | 64 x 2 B = 128 B + 4 B indices | saturates 0x7FFF, overflow byte |
 | barcode result + seq | Barcode / Controller, Comms | 7 results; 0..15 | 3+4 | bits 0-2, 3-6 | 1 B | |
 | decoder_state | Barcode private | 4 states | 2 | private | | |
+| line references min/max x2 | Line private (`g_s3_line`) | 0..4095 | 4 x 16 | private | 20 B struct total | running, 1 LSB/cycle relax |
+| dark_cycles / light_cycles | Line private | 0..65535 | 16 each | private | | saturating |
+| prev_error | Line private | -100..100 | 16 (int16) | private | | for the D term |
+| barcode element width | Barcode private (`g_s3_bc`) | 0..65535 x 8 us | 16 each, 64 entries | private | 148 B struct total | same unit as EdgeRing delta |
+| barcode count / merge_pending | Barcode private | 0..64; 0,1 | 8; 1 | private | | |
 
 LineState: 23 meaningful bits in a 32-bit word.
 

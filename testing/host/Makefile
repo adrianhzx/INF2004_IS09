@@ -10,15 +10,18 @@ CFLAGS  := -std=c99 -pedantic -Wall -Wextra -Wshadow -Wswitch-default \
            -O1 -g -DAPP_HOST_TEST=1 -I. -I$(SHARED)
 
 S2      := ../../app_program/subsystem2
-CFLAGS  += -I$(S2)
+S3      := ../../app_program/subsystem3
+CFLAGS  += -I$(S2) -I$(S3)
 
 SRCS := test_shared.c host_port.c \
         $(SHARED)/app_safety.c $(SHARED)/app_ipc.c $(SHARED)/app_telemetry.c \
         $(SHARED)/app_blackboard.c
 MOTION_SRCS := test_motion.c host_port.c $(SHARED)/app_blackboard.c \
         $(S2)/motion_core.c $(S2)/drv_encoder.c
+LINE_SRCS := test_line.c host_port.c $(SHARED)/app_blackboard.c \
+        $(S3)/line_core.c $(S3)/barcode_core.c
 
-all: test_shared test_motion
+all: test_shared test_motion test_line
 
 test_shared: $(SRCS) $(wildcard $(SHARED)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(SRCS)
@@ -26,11 +29,15 @@ test_shared: $(SRCS) $(wildcard $(SHARED)/*.h) host_port.h
 test_motion: $(MOTION_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S2)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(MOTION_SRCS)
 
-run: test_shared test_motion
+test_line: $(LINE_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S3)/*.h) host_port.h
+	$(CC) $(CFLAGS) -o $@ $(LINE_SRCS)
+
+run: test_shared test_motion test_line
 	./test_shared
 	./test_motion
+	./test_line
 
 clean:
-	rm -f test_shared test_motion vectors.txt
+	rm -f test_shared test_motion test_line vectors.txt
 
 .PHONY: all run clean
