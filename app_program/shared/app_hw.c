@@ -351,6 +351,30 @@ release_reset (uint32_t bit)
     return true;
 }
 
+bool
+app_hw_release_reset (uint32_t reset_bit)
+{
+    return release_reset(reset_bit);
+}
+
+void
+app_hw_gpio_function (uint32_t pin, uint32_t funcsel, bool pull_up)
+{
+    uint32_t pad =
+        GPIO_IE | GPIO_SHEMITT | GPIO_DRIVE_4MA; /* slew bit clear = slow */
+
+    if (pin >= APP_GPIO_COUNT)
+    {
+        return;
+    }
+    if (pull_up)
+    {
+        pad |= GPIO_PUE;
+    }
+    out_w(GPIO(pin), pad);
+    out_w(GPIO_CTRL(pin), funcsel);
+}
+
 uint32_t
 app_hw_init (void)
 {

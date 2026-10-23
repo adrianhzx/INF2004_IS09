@@ -133,7 +133,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 1 Shared foundation | DONE (host-verified, target-built, bench NOT RUN) | see section 6 |
 | 2 Motion | DONE (host-verified, target-built, bench NOT RUN, disarmed) | see section 7 |
 | 3 Line + Barcode | DONE (host-verified, target-built, bench NOT RUN) | see section 8 |
-| 4 IMU | NOT STARTED | |
+| 4 IMU | DONE (host-verified, target-built, bench NOT RUN) | see section 9 |
 | 5 Obstacle | NOT STARTED | |
 | 6 Wi-Fi/MQTT | NOT STARTED | |
 | 7 Integration | NOT STARTED | |
@@ -289,3 +289,56 @@ sensing + barcode).
 Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, IR polarity and
 references `[TBC]` (HV-10), barcode edge timing NOT MEASURED (HV-11). Next:
 PHASE 4 (subsystem4, IMU).
+
+## 9. Phase 4 record (subsystem4 - IMU, hump and collision, Buddy 4)
+
+### Files written
+
+| Path | Role |
+|---|---|
+| `app_program/subsystem4/imu_core.[ch]` | pure algorithm: axis map + signs, spike-rejecting EMA, integer atan2 pitch (0.5 deg), FLAT / CLIMBING / DESCENDING episodes with theta_ON confirm, T_ABORT false-trigger exit, D_HUMP_MAX / T_HUMP_MAX bounds, NORMAL / REJECTED / DEGRADED / INVALID terminals each with exactly one END(seq), height = sum(d x sin(pitch)) x K_CAL, peak and run maximum (D-17), 127 mm saturation -> DEGRADED, collision (D-18), six-class classifier with 30 ms hysteresis and 500 ms IMPACT hold |
+| `app_program/subsystem4/drv_i2c.[ch]` | polled I2C0 master (DW_apb_i2c registers), 400 kHz timing as the Pico SDK derives it, every wait bounded by a 2 ms deadline, abort/timeout counters, RESTART reads |
+| `app_program/subsystem4/drv_lsm303.[ch]` | LSM303DLHC accelerometer: CTRL_REG1_A 0x57 (100 Hz, XYZ), CTRL_REG4_A 0x88 (BDU, HR, +-2 g), read-back check, 7-byte STATUS+XYZ burst, 12-bit left-justified -> mg, identity via CTRL1 read-back + magnetometer IRA 'H' |
+| `app_program/subsystem4/task_imu.c` | ImuTask, priority 5, CYC slot IMU: sensor read (3 consecutive errors -> IMU_FAULT, re-init every 500 ms, never a stop), MotionStatus freshness by cycle tag (STALE_MOTION diagnostic), distance delta, latch byte, core step, one aligned `g_imu_state` store, EVT_HUMP_START/END + telemetry, collision -> SafeStop_Request first then IMU_FAULT (D-19), MOTION_CLASS telemetry |
+| `app_program/subsystem4/subsystem4.[ch]`, `subsystem4_test.c` | I2C/sensor bring-up (missing sensor is not a boot failure), task start, S4-U01..06 |
+| `app_program/shared/app_hw.[ch]` | `app_hw_release_reset()`, `app_hw_gpio_function()` exported for task-owned peripherals |
+| `app_program/shared/app_cal.h` | `APP_CAL_IMU_*`, `APP_CAL_COLLISION_*`, class and hump policy constants (all `[TBC]` until HV-12..14) |
+| `testing/host/test_imu.c` | 56 checks with a scripted car |
+
+### Decisions recorded
+
+D-17 (hump_max from NORMAL only), D-18 (collision needs motion; spikes kept
+out of the pitch filter), D-19 (IMU_FAULT on collision as Rev B writes it;
+relabel suggested), D-20 (own polled I2C driver). Also:
+
+* No WHO_AM_I exists on the LSM303DLHC accelerometer; presence is proven by
+  the CTRL_REG1_A read-back and the magnetometer identification register.
+* ODR 100 Hz equals the task rate, so a cycle may see no new sample
+  (ZYXDA = 0); the previous values are reused and remain valid. A single bus
+  error likewise reuses the last sample; only the third consecutive error
+  declares the sensor faulty (and ends an active episode as INVALID).
+* sin(pitch) is taken from the filtered vector (a_fwd / |a|), so the height
+  integral needs no trigonometry table; atan2 is an integer rational
+  approximation (max error 0.5 deg, H-IM-02).
+* TURNING is taken from MotionStatus (no gyro on this part); ACCELERATING is
+  |v - v_lp| >= 3 cm/s from the encoder speed, not from the accelerometer,
+  so a slope does not read as acceleration.
+* ImuTask blocks ~250 us per cycle in the polled I2C read (priority 5); the
+  bounded deadline guarantees < 2 ms even with the sensor unplugged.
+
+### Validation
+
+| Check | Result |
+|---|---|
+| `make SMP=0 NET=lwip MQTT=1 -j8` | PASS 0 app warnings, text 337040 / data 128 / bss 78960 |
+| `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 345596 / 128 / 78980 |
+| `make SMP=0 -j8`, `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings |
+| `./testing/host/test_imu` | 56 passed, 0 failed |
+| `./testing/host/test_line`, `test_shared`, `test_motion` (regression) | 114 / 418 / 56 passed, 0 failed |
+| `tools/barr-c/check_app.sh` | PASS (imu_core, drv_i2c.h, drv_lsm303.h, test_imu.c added to clang-tidy) |
+| Linked sizes | `g_s4_core` 56 B, `g_s4_sample` 8 B, `g_imu_state` 4 B, `imu_core_step` 1476 B text, `docs/evidence/phase4_sizes.txt` |
+| On-target S4-U01..06, HV-12/13/14, NFR15 | **NOT RUN** |
+
+Status: BUILD PASS, HOST TEST PASS, TARGET NOT RUN, axis mapping and signs
+`[TBC]` (HV-12), collision threshold unvalidated (A9, HV-13), K_CAL and
+NFR15 NOT MEASURED (HV-14). Next: PHASE 5 (subsystem5, obstacle scan).

@@ -1,0 +1,18 @@
+# Phase 4 linked sizes (arm-none-eabi-nm -S, SMP=1 NET=lwip MQTT=1 TEST=1 image, 2026-10-23)
+20000120 00000004 D g_imu_state
+200144e8 00000008 b g_s4_sample
+200144f0 00000038 b g_s4_core
+10019470 0000004c T drv_lsm303_init
+100194bc 00000098 T drv_lsm303_read
+100192cc 000000a0 T drv_i2c_write_reg
+100191f8 000000d4 T drv_i2c_init
+10019660 000000dc T imu_core_atan2_half_deg
+1001936c 000000ec T drv_i2c_read_regs
+1001a0a8 000003d8 T s4_imu_cycle
+10019774 000005c4 T imu_core_step
+
+# size (text data bss) per profile
+ 282992	    120	  21188	 304300	  4a4ac	mtk3pico_smp0_usb_cdc_wifi.elf
+ 337040	    128	  78960	 416128	  65980	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+ 345596	    128	  78980	 424704	  67b00	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+ 351876	    140	  83108	 435124	  6a3b4	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf

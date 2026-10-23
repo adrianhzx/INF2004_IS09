@@ -147,5 +147,31 @@
     1000U                          /* height scale factor x/1000 [TBC, A8]     \
                                     */
 #define APP_CAL_COLLISION_MG 2500U /* |a_x| spike threshold [TBC, A9] */
+#define APP_CAL_COLLISION_ENABLE                                               \
+    1 /* 0 while measuring hump entry shocks (A9, HV-13) */
+#define APP_CAL_COLLISION_SAMPLES                                              \
+    2U /* consecutive spike samples (20 ms) [TBC, A9] */
+#define APP_CAL_IMPACT_HOLD_MS                                                 \
+    500U                          /* motion class IMPACT hold after a spike    \
+                                   */
+#define APP_CAL_CLASS_HOLD_MS 30U /* other class changes need 3 cycles */
+#define APP_CAL_ACCEL_CM_S 3U     /* |v - v_lp| >= this -> ACCELERATING [TBC] */
+#define APP_CAL_HUMP_MAX_ACCEPT_DEGRADED                                       \
+    0 /* 1: DEGRADED peaks may update hump_max (D-17) */
+#define APP_CAL_IMU_LP_SHIFT                                                   \
+    2U /* accel EMA alpha 1/4 at 100 Hz (~4 Hz corner) [TBC] */
+#define APP_CAL_IMU_AXIS_FWD                                                   \
+    0U /* sensor axis along the car: 0 X, 1 Y, 2 Z [TBC, HV-12] */
+#define APP_CAL_IMU_AXIS_UP                                                    \
+    2U /* sensor axis away from the floor [TBC, HV-12] */
+#define APP_CAL_IMU_FWD_SIGN                                                   \
+    1 /* +1 or -1: nose-up pitch must read positive [TBC, HV-12] */
+#define APP_CAL_IMU_UP_SIGN                                                    \
+    1 /* +1 or -1: level car reads about +1000 mg [TBC, HV-12] */
+#define APP_CAL_IMU_I2C_HZ                                                     \
+    400000U /* LSM303DLHC fast mode; 100000 if the Grove lead is noisy */
+#define APP_CAL_IMU_FAULT_ERRORS 3U /* consecutive I2C errors -> IMU_FAULT */
+#define APP_CAL_IMU_RETRY_MS                                                   \
+    500U /* sensor re-initialisation period while faulted */
 
 #endif /* APP_CAL_H */

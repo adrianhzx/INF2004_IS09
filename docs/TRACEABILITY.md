@@ -19,8 +19,11 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR6 | execute nav command at junction | ctrl + B2 | Phase 7 | C | NOT RUN |
 | FR7 | invalid barcode: continue + report | B3 + ctrl | INV_NO_MATCH / INV_OVERFLOW published with seq + `APP_TEV_BARCODE` (H-BC-17, 20, 21); controller reaction = Phase 7 | C | NOT RUN (host PASS) |
 | FR8 | move/turn/stop by encoders, signal completion | B2 | `subsystem2/motion_core.c` MOVE/TURN/BRAKE, `done_seq`+`EVT_MOTION_DONE` (H-MO-23..33 PASS on a simulated car) | H PASS, B (HV-3/4) + C NOT RUN | PARTIAL |
-| FR9-FR12 | hump detect / peak / run max / motion class | B4 | Phase 4; `ImuState` word (H-BB-12..14 PASS) | B + C | NOT RUN |
-| FR13 | IMU collision -> latched stop | B4 + shared | `app_safe_stop_request(COLLISION)` path (H-SF-04..07, SH-U08) | H PASS, T NOT RUN, C NOT RUN | PARTIAL |
+| FR9 | hump detection | B4 | `imu_core.c` FLAT->CLIMBING after theta_ON held 50 ms while moving and fresh (H-IM-16) | H + B | HOST PASS; bench NOT RUN (HV-12) |
+| FR10 | peak height estimate | B4 | distance x sin(pitch) x K_CAL, peak over the episode, 127 mm saturation -> DEGRADED (H-IM-22, 34, 41) | H + B (HV-14) | HOST PASS; NFR15 NOT MEASURED |
+| FR11 | retain run maximum | B4 | `max_height_mm` from NORMAL episodes (H-IM-23, 26, 27; D-17) | H | HOST PASS |
+| FR12 | six motion classes + change reports | B4 | `classify()` STATIONARY/ACCELERATING/TURNING/CLIMBING/DESCENDING/IMPACT (+CRUISING), `APP_TEV_MOTION_CLASS` on change (H-IM-18, 19, 44..55) | H | HOST PASS (TURNING comes from MotionStatus, no gyro) |
+| FR13 | IMU collision -> latched stop | B4 + shared | two >= 2.5 g spikes while moving (H-IM-43..49) -> `app_safe_stop_request(COLLISION)` first, then IMU_FAULT (`task_imu.c`, D-18/D-19) | H PASS, T NOT RUN, B (HV-13) NOT RUN | PARTIAL (threshold A9 unvalidated) |
 | FR14-FR19 | obstacle detect/stop/profile/avoid/reacquire | B5 + ctrl | Phase 5/7; `ObstacleProfile` words (H-BB-15..19 PASS) | B + C | NOT RUN |
 | FR20 | Wi-Fi + MQTT telemetry of all listed items | B1 | Phase 6; codecs SNAP/EVT/OBS (H-TF PASS, Python parity PASS) | H PASS, bench NOT RUN | PARTIAL (obstacle summary via OBS frame, D-06 pending ratification) |
 | FR21 | periodic heartbeat/status | B1 | Phase 6; HB frame codec (H-TF-08 PASS) | NOT RUN | PARTIAL (frame defined under D-06) |

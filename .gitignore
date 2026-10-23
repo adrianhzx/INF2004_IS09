@@ -29,3 +29,4 @@ config/wifi_secrets.h
 testing/host/test_shared
 testing/host/test_motion
 testing/host/test_line
+testing/host/test_imu

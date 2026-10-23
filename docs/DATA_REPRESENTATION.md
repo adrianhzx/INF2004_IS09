@@ -85,6 +85,10 @@ LineState: 23 meaningful bits in a 32-bit word.
 | motion_class | IMU / Comms | 7 classes | 3 | 28-30 | | |
 | hump_active | IMU / Controller | 0,1 | 1 | 31 | | |
 | hump_state | IMU private | FLAT,CLIMBING,DESCENDING | 2 | private bit-field | | |
+| lp_fwd / lp_lat / lp_up | IMU private (`g_s4_core`, 56 B) | +-2 g x 16 | 32 each | private | | mg x 2^2 EMA |
+| confirm counters, episode cycles / distance | IMU private | 0..255 / 0..65535 | 8 / 16 | private | | cycles, mm |
+| height_q8 / peak_q8 | IMU private | signed | 32 each | private | | mm x 256 |
+| raw sample x/y/z | IMU private (`g_s4_sample`) | +-2048 | 16 each | private | 8 B | mg |
 
 ImuState: exactly 32 meaningful bits.
 

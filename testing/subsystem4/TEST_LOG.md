@@ -1,25 +1,55 @@
-# Subsystem 4 — test log
+# Subsystem 4 - IMU, hump and collision (Buddy 4, Wong Wei Qi)
 
-**Subsystem:** Monitor (example)  ·  **Student ID:** <student ID>  ·  **Code:** `app_program/subsystem4/`
+## Host tests (`make -C testing/host test_imu && ./testing/host/test_imu`)
 
-See `testing/README.md` for how to run tests and record results.
+| Run | Date | Result | Log |
+|---|---|---|---|
+| Phase 4 | 2026-10-23 | 56 passed, 0 failed | `docs/evidence/phase4_host_tests.log` |
 
-## Test cases
+IDs H-IM-01..56: integer sqrt and atan2 (within 0.5 deg over the full
+circle, large inputs prescaled), default axis map, pitch filter (alpha 1/4,
+clamp at +-63.5 deg, state kept across an invalid sample), a scripted
+20 cm/s car over a 15 deg trapezoid hump: EVT_HUMP_START after theta_ON held
+50 ms, live peak while active, classes CLIMBING / DESCENDING, exactly one
+EVT_HUMP_END carrying the same seq, NORMAL with the 51.8 mm peak estimated
+within +-6 mm, run maximum kept across a smaller hump and raised by a larger
+one; REJECTED by T_ABORT (false trigger) and by D_HUMP_MAX without descent;
+DEGRADED when the descent never settles (peak reported, hump_max untouched);
+INVALID at once on STOP_LATCH, stale MotionStatus or sensor failure with the
+peak discarded; no start while stationary, latched or stale; a 257 mm climb
+saturates to 127 mm and is reported DEGRADED, never as fact; 18 episodes wrap
+the 4-bit seq; collision needs two consecutive >= 2.5 g spikes while moving,
+is requested once, holds IMPACT for 500 ms, and is ignored at rest or after
+the latch; class hysteresis (30 ms), ACCELERATING on a speed step, TURNING
+from MotionStatus, STATIONARY on stop; ImuState word round trip.
 
-Define a test here before running it. Test IDs never change.
+Limits recorded by the tests:
 
-| ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
-|---|---|---|---|---|---|
-| S4-U01 | message buffer max line = S4_SUMMARY_MAX | IF-03 | auto | `subsystem4_test.c` | `[TEST] S4-U01 PASS` |
-| S4-U02 | LED pauses and resumes every 6 reports | IF-05 | manual | 1. Flash normal image. 2. Watch LED and console ~20 s. | console shows "LED task paused"/"resumed"; LED stops/starts |
+* The height estimate uses distance x sin(pitch) with the filtered pitch;
+  the filter lag costs a few mm on a 50 mm hump. K_CAL (A8, HV-14) is the
+  bench correction; the field saturates at 127 mm.
+* A hump with a flat crest longer than T_ABORT (300 ms = 6 cm at 20 cm/s)
+  is REJECTED by the adopted statechart; raise `APP_CAL_T_ABORT_MS` if the
+  reference humps have long crests.
+* Collision and hump-entry shock are separated only by the 2.5 g threshold
+  (A9); `APP_CAL_COLLISION_ENABLE 0` lets HV-13 record both without stops.
 
-*Method:* **auto** = `TEST_CHECK` in code, result printed on the console;
-**manual** = a person observes the result (LED, scope, meter, phone app…).
+## On-target (`make SMP=0 NET=lwip MQTT=1 TEST=1`, car level and still)
 
-## Results
+| ID | Check | Result | Log |
+|---|---|---|---|
+| S4-U01 | LSM303DLHC answers: CTRL_REG1_A reads back 0x57, IRA_REG_M 'H'; abort/timeout counters printed | NOT RUN | |
+| S4-U02a-b | ImuTask 100 +-5 cycles/s; longest cycle < 600 us | NOT RUN | |
+| S4-U03 | gravity magnitude 1 g +-20 % at rest | NOT RUN | |
+| S4-U04a-c | sensor healthy and IMU_FAULT clear; pitch within +-10 deg level (axis map HV-12); no episode, STATIONARY | NOT RUN | |
+| S4-U05 | a tap at rest does not latch a stop (D-18) | NOT RUN | |
+| S4-U06 | ImuState refreshed within 15 ms | NOT RUN | |
 
-Add a new row for every run. Never edit or delete old rows.
+Also planned (needs the car moving, Phase 7 integration): forced collision
+on blocks with the wheels spinning (COLLISION latched, IMU_FAULT set, cleared
+after recovery), one reference hump per quality.
 
-| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
-|---|---|---|---|---|---|---|
-| YYYY-MM-DD | S4-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
+## Bench procedures owned by this subsystem (docs/HARDWARE_VALIDATION.md)
+
+HV-12 axis mapping and signs, HV-13 collision threshold vs hump-entry shock
+(A9), HV-14 K_CAL against reference humps (A8, NFR15).

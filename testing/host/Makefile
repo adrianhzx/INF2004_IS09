@@ -11,7 +11,8 @@ CFLAGS  := -std=c99 -pedantic -Wall -Wextra -Wshadow -Wswitch-default \
 
 S2      := ../../app_program/subsystem2
 S3      := ../../app_program/subsystem3
-CFLAGS  += -I$(S2) -I$(S3)
+S4      := ../../app_program/subsystem4
+CFLAGS  += -I$(S2) -I$(S3) -I$(S4)
 
 SRCS := test_shared.c host_port.c \
         $(SHARED)/app_safety.c $(SHARED)/app_ipc.c $(SHARED)/app_telemetry.c \
@@ -20,8 +21,9 @@ MOTION_SRCS := test_motion.c host_port.c $(SHARED)/app_blackboard.c \
         $(S2)/motion_core.c $(S2)/drv_encoder.c
 LINE_SRCS := test_line.c host_port.c $(SHARED)/app_blackboard.c \
         $(S3)/line_core.c $(S3)/barcode_core.c
+IMU_SRCS := test_imu.c host_port.c $(SHARED)/app_blackboard.c $(S4)/imu_core.c
 
-all: test_shared test_motion test_line
+all: test_shared test_motion test_line test_imu
 
 test_shared: $(SRCS) $(wildcard $(SHARED)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(SRCS)
@@ -32,12 +34,16 @@ test_motion: $(MOTION_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S2)/*.h) host
 test_line: $(LINE_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S3)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(LINE_SRCS)
 
-run: test_shared test_motion test_line
+test_imu: $(IMU_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S4)/*.h) host_port.h
+	$(CC) $(CFLAGS) -D_DEFAULT_SOURCE -o $@ $(IMU_SRCS) -lm
+
+run: test_shared test_motion test_line test_imu
 	./test_shared
 	./test_motion
 	./test_line
+	./test_imu
 
 clean:
-	rm -f test_shared test_motion test_line vectors.txt
+	rm -f test_shared test_motion test_line test_imu vectors.txt
 
 .PHONY: all run clean
