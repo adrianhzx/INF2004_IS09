@@ -135,6 +135,16 @@ void     app_hw_irq_restore (uint32_t saved);
 #define APP_HW_OK_PWM_RELEASED (1U << 1U)
 #define APP_HW_OK_IO_RELEASED (1U << 2U)
 
+/** Release one peripheral from reset (RESETS_RESET_* bit from sysdef.h) and
+ *  wait, bounded, for RESET_DONE. Never re-asserts a reset. Returns true when
+ *  the block is out of reset. For task-owned peripherals (I2C0, ADC). */
+bool app_hw_release_reset (uint32_t reset_bit);
+
+/** Route a pin to a peripheral function (GPIO_CTRL_FUNCSEL_*) with input
+ *  enable, schmitt trigger, optional pull-up and slow slew; the peripheral
+ *  then owns the pad (I2C open-drain lines, for example). */
+void app_hw_gpio_function (uint32_t pin, uint32_t funcsel, bool pull_up);
+
 /** Release TIMER/PWM resets, start the watchdog tick, and verify that the
  *  microsecond timer advances. Returns the APP_HW_OK_* bits that passed.
  *  Called once from usermain() before any subsystem init. */

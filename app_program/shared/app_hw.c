@@ -176,9 +176,19 @@ app_hw_gpio_irq_take_all (uint8_t * p_status)
         /* W1C only the edge bits that are actually pending; level bits are
            read-only in INTR and clear when the level goes away. */
         uint32_t const edge_bits = ints & 0xCCCCCCCCUL;
+        /* A forced bit (INTF, written only by test code) keeps the bank IRQ
+           asserted until software clears it, so the dispatcher would re-enter
+           forever and the forcing code would never run again. Release every
+           forced bit that is being reported: a forced event fires once. */
+        uint32_t const forced =
+            in_w(APP_IO_BANK0_PROC0_INTF0 + (reg * 4U)) & ints;
         if (0U != edge_bits)
         {
             out_w(APP_IO_BANK0_INTR0 + (reg * 4U), edge_bits);
+        }
+        if (0U != forced)
+        {
+            clr_w(APP_IO_BANK0_PROC0_INTF0 + (reg * 4U), forced);
         }
         for (pin = 0U; pin < APP_IO_BANK0_REG_PINS; pin++)
         {
@@ -350,6 +360,30 @@ release_reset (uint32_t bit)
         }
     }
     return true;
+}
+
+bool
+app_hw_release_reset (uint32_t reset_bit)
+{
+    return release_reset(reset_bit);
+}
+
+void
+app_hw_gpio_function (uint32_t pin, uint32_t funcsel, bool pull_up)
+{
+    uint32_t pad =
+        GPIO_IE | GPIO_SHEMITT | GPIO_DRIVE_4MA; /* slew bit clear = slow */
+
+    if (pin >= APP_GPIO_COUNT)
+    {
+        return;
+    }
+    if (pull_up)
+    {
+        pad |= GPIO_PUE;
+    }
+    out_w(GPIO(pin), pad);
+    out_w(GPIO_CTRL(pin), funcsel);
 }
 
 uint32_t

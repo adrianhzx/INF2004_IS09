@@ -1,12 +1,13 @@
 /** @file subsystem5.c
- *  @brief Subsystem 5 placeholder: creates its kernel objects only.
- *         STATUS: NOT IMPLEMENTED (Phase 5). Motor-safe: no pin written.
+ *  @brief Subsystem 5: FLG_SCAN, MTX_OBSTACLE (TA_INHERIT), servo / TRIG /
+ *         ECHO bring-up behind the HV-5 and HV-7 gates, ObstacleScanTask.
  */
 
 #include "subsystem5.h"
 
 EXPORT ID flg_scan     = 0;
 EXPORT ID mtx_obstacle = 0;
+EXPORT ID tid_scan     = 0;
 
 EXPORT ER
 subsystem5_init (void)
@@ -32,14 +33,21 @@ subsystem5_init (void)
     {
         return mtx_obstacle;
     }
-    /* PLACEHOLDER: GP15 servo, GP16 TRIG, GP17 ECHO untouched until Phase 5
-       and until APP_CAL_ECHO_SHIFTER_VERIFIED (HV-5). */
+    if (!s5_scan_init_hw())
+    {
+        return E_OBJ; /* GP17 already owned by another callback */
+    }
     return E_OK;
 }
 
 EXPORT ER
 subsystem5_start (void)
 {
-    /* PLACEHOLDER: no task yet. The real task is created in Phase 5. */
+    tid_scan = app_start_task_stack((FP) s5_scan_task, APP_PRI_SCAN,
+                                    (SZ) APP_STACK_SCAN, "ObstacleScanTask");
+    if (tid_scan < E_OK)
+    {
+        return tid_scan;
+    }
     return E_OK;
 }

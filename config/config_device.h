@@ -26,7 +26,7 @@
  */
 
 #define DEVCNF_USE_SER		1		// Serial communication device 
-#define DEVCNF_USE_ADC		1		// A/D conversion device
+#define DEVCNF_USE_ADC		0		// A/D conversion device (OFF: owned by subsystem3 LineSensingTask, IS09 Phase 3)
 #define DEVCNF_USE_IIC		0		// I2C communication device
 		/* Off by default so no pins are claimed at boot.  To use I2C,
 		   set this to 1 and choose the pins in

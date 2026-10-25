@@ -26,6 +26,11 @@
  *  identified. While 0, ObstacleScanTask never drives TRIG. */
 #define APP_CAL_ECHO_SHIFTER_VERIFIED 0
 
+/** HV-7 done: servo pulse limits found at battery voltage. While 0,
+ *  ObstacleScanTask configures PWM slice 7 but never routes GP15 to it, so
+ *  the servo is not energised. */
+#define APP_CAL_SERVO_ARMED 0
+
 /** HV-6 done: button polarity confirmed. 1 = pressed reads LOW. */
 #define APP_CAL_BUTTON_ACTIVE_LOW 1
 
@@ -79,9 +84,54 @@
     20U /* full quadrature edges per wheel rev [TBC, HV-3] */
 #define APP_CAL_ENC_STALL_MS                                                   \
     300U /* no ticks while driving for this duration -> STALL [TBC] */
+#define APP_CAL_ENC_STOP_MS                                                    \
+    300U /* no edge for this duration -> measured speed 0 [TBC] */
+#define APP_CAL_ENC_GLITCH_MAX                                                 \
+    50U /* invalid quadrature transitions per run -> ENCODER_FAULT [TBC] */
+
+/* ---- Motion control (Buddy 2). All gains Q8 fixed point (256 = 1.0). --- */
+#define APP_CAL_PWM_MAX_PCT                                                    \
+    80U /* |PWM| ceiling until HV-4 current check [TBC] */
+#define APP_CAL_PWM_MIN_PCT                                                    \
+    18U /* below this the motor does not turn [TBC, HV-4] */
+#define APP_CAL_PWM_STALL_PCT                                                  \
+    30U /* stall watch only above this demand [TBC]                            \
+         */
+#define APP_CAL_FF_Q8_PER_CM_S                                                 \
+    640U /* feed-forward: PWM% x256 per cm/s (2.5 %/cm/s) [TBC] */
+#define APP_CAL_SPEED_KP_Q8 512U          /* 2.0 %/cm/s [TBC] */
+#define APP_CAL_SPEED_KI_Q8 64U           /* 0.25 %/(cm/s x cycle) [TBC] */
+#define APP_CAL_SPEED_I_MAX_Q8 (30 * 256) /* integral clamp = 30 % PWM */
+#define APP_CAL_STRAIGHT_KP_Q8                                                 \
+    768U /* 3.0 % per tick of L-R difference [TBC]                             \
+          */
+#define APP_CAL_STEER_GAIN_Q8                                                  \
+    128U /* FOLLOW: 0.5 % PWM per steer unit [TBC]                             \
+          */
+#define APP_CAL_TURN_UNTIL_LINE_MIN_PCT                                        \
+    50U /* until_line may finish after this % of the angle */
+#define APP_CAL_TURN_UNTIL_LINE_MAX_PCT                                        \
+    150U /* ... and aborts at this % if no line */
 
 /* ---- Line sensing ------------------------------------------------------ */
 #define APP_CAL_IR_MIN_CONTRAST 400U /* min (black - white) ADC span [TBC] */
+#define APP_CAL_IR_DARK_IS_HIGH                                                \
+    1 /* 1: black line reads a HIGHER ADC value [TBC, HV-10] */
+#define APP_CAL_LINE_DARK_PCT 50U /* normalised >= this = dark [TBC] */
+#define APP_CAL_LINE_KP_Q8 256U   /* steer = Kp*error + Kd*d(error) [TBC] */
+#define APP_CAL_LINE_KD_Q8 64U
+#define APP_CAL_LINE_CAL_DECAY                                                 \
+    1U /* running min/max relax by this many LSB per cycle */
+#define APP_CAL_LINE_INIT_WHITE                                                \
+    1000U /* default references until calibrated [TBC] */
+#define APP_CAL_LINE_INIT_BLACK 3000U
+
+/* ---- Barcode (Code 39, measured 3:1, see ledger S6) --------------------- */
+#define APP_CAL_BC_ELEMENTS 29U /* *, one character, * with two gaps */
+#define APP_CAL_BC_N_MIN 20U    /* fewer at quiet = stray mark, silent */
+#define APP_CAL_BC_RATIO_MIN_Q8                                                \
+    384U /* wide/narrow must be >= 1.5 to classify */
+#define APP_CAL_BC_RATIO_MAX_Q8 1536U /* ... and <= 6.0 */
 
 /* ---- Obstacle ---------------------------------------------------------- */
 #define APP_CAL_D_STOP_CM                                                      \
@@ -93,6 +143,24 @@
 #define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
 #define APP_CAL_SERVO_MIN_US 1000U /* 0 deg pulse [TBC, HV-7] */
 #define APP_CAL_SERVO_MAX_US 2000U /* 180 deg pulse [TBC, HV-7] */
+#define APP_CAL_SERVO_LEFT_IS_MAX_PULSE                                        \
+    1 /* 1: longer pulse turns the sensor LEFT [TBC, HV-7] */
+#define APP_CAL_T_SERVO_MIN_SETTLE_MS 20U /* floor for a 5 deg step */
+#define APP_CAL_R_PROFILE_CM                                                   \
+    45U /* samples at or inside this belong to the obstacle [TBC] */
+#define APP_CAL_R_SIDE_FREE_CM                                                 \
+    60U /* samples beside the obstacle must exceed this for a valid side [TBC] \
+         */
+#define APP_CAL_Y_PATH_MAX_CM                                                  \
+    40U /* largest lateral bypass offset the course allows [TBC] */
+#define APP_CAL_US_BEAM_HALF_SIN_PERMILLE                                      \
+    122U /* sin(7 deg): HC-SR04 half beam [TBC, A10] */
+#define APP_CAL_D_SIDE_UNSAFE_CM                                               \
+    10U /* side range below this twice -> EVT_SIDE_UNSAFE [TBC] */
+#define APP_CAL_D_STOP_HYST_CM                                                 \
+    5U /* forward watch re-arms above D_STOP + this */
+#define APP_CAL_NO_ECHO_COUNT                                                  \
+    5U /* consecutive echo timeouts -> NO_ECHO fault */
 
 /* ---- IMU --------------------------------------------------------------- */
 #define APP_CAL_THETA_ON_HALF_DEG 10 /* 5.0 deg [TBC, A8] */
@@ -102,5 +170,31 @@
     1000U                          /* height scale factor x/1000 [TBC, A8]     \
                                     */
 #define APP_CAL_COLLISION_MG 2500U /* |a_x| spike threshold [TBC, A9] */
+#define APP_CAL_COLLISION_ENABLE                                               \
+    1 /* 0 while measuring hump entry shocks (A9, HV-13) */
+#define APP_CAL_COLLISION_SAMPLES                                              \
+    2U /* consecutive spike samples (20 ms) [TBC, A9] */
+#define APP_CAL_IMPACT_HOLD_MS                                                 \
+    500U                          /* motion class IMPACT hold after a spike    \
+                                   */
+#define APP_CAL_CLASS_HOLD_MS 30U /* other class changes need 3 cycles */
+#define APP_CAL_ACCEL_CM_S 3U     /* |v - v_lp| >= this -> ACCELERATING [TBC] */
+#define APP_CAL_HUMP_MAX_ACCEPT_DEGRADED                                       \
+    0 /* 1: DEGRADED peaks may update hump_max (D-17) */
+#define APP_CAL_IMU_LP_SHIFT                                                   \
+    2U /* accel EMA alpha 1/4 at 100 Hz (~4 Hz corner) [TBC] */
+#define APP_CAL_IMU_AXIS_FWD                                                   \
+    0U /* sensor axis along the car: 0 X, 1 Y, 2 Z [TBC, HV-12] */
+#define APP_CAL_IMU_AXIS_UP                                                    \
+    2U /* sensor axis away from the floor [TBC, HV-12] */
+#define APP_CAL_IMU_FWD_SIGN                                                   \
+    1 /* +1 or -1: nose-up pitch must read positive [TBC, HV-12] */
+#define APP_CAL_IMU_UP_SIGN                                                    \
+    1 /* +1 or -1: level car reads about +1000 mg [TBC, HV-12] */
+#define APP_CAL_IMU_I2C_HZ                                                     \
+    400000U /* LSM303DLHC fast mode; 100000 if the Grove lead is noisy */
+#define APP_CAL_IMU_FAULT_ERRORS 3U /* consecutive I2C errors -> IMU_FAULT */
+#define APP_CAL_IMU_RETRY_MS                                                   \
+    500U /* sensor re-initialisation period while faulted */
 
 #endif /* APP_CAL_H */
