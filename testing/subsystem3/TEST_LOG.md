@@ -1,24 +1,60 @@
-# Subsystem 3 — test log
+# Subsystem 3 - Line sensing and barcode (Buddy 3)
 
-**Subsystem:** Consumer (example)  ·  **Student ID:** <student ID>  ·  **Code:** `app_program/subsystem3/`
+## Host tests (`make -C testing/host test_line && ./testing/host/test_line`)
 
-See `testing/README.md` for how to run tests and record results.
+| Run | Date | Result | Log |
+|---|---|---|---|
+| Phase 3 | 2026-10-23 | 114 passed, 0 failed | `docs/evidence/phase3_host_tests.log` |
 
-## Test cases
+IDs H-LN-01..25 (line_core): normalisation and clamps, boot references
+usable at once, flat signal collapsing the running references to an
+IR_CONTRAST loss and immediate recovery, error sign (+ = line right of
+centre) and steer polarity/clamp, seq modulo 16, JUNCTION on the 6th
+both-dark cycle (T_JUNC 60 ms) reported once and re-armed after leaving
+both-dark, a 3-cycle both-dark blip filtered, LOST on the 10th both-light
+cycle (T_LOST 100 ms) with on_line held true until then, FOUND on the first
+dark sample afterwards, LineState word round trip, raw > 4095 clamped.
 
-Define a test here before running it. Test IDs never change.
+IDs H-BC-00..23 (barcode_core): Code 39 A/B/C/D/Z decoded forwards and
+reversed (post U-turn) at narrow = 6, 15, 30 ms (3 mm at 50 / 20 / 10 cm/s),
++-20 % width jitter, 28-element and corrupted-element rejection, no-contrast
+rejection, unknown character; state machine DISARMED -> WAIT_QUIET ->
+CAPTURING -> result, edges ignored while disarmed or before a quiet zone,
+seq 1, 2, ... in 4 bits, a 6.7 cm/s capture (wide 135 ms) exact in 8 us
+units, stray mark (5 elements) discarded silently, partial code (22
+elements) reported as INV_NO_MATCH, a 100 us glitch inside a wide bar merged
+back, a mid-capture gap >= T_QUIET closing the capture and starting the
+next, ring overflow -> INV_OVERFLOW + fault, the 65th element ->
+INV_OVERFLOW, DISARM discarding everything.
 
-| ID | What is tested | Requirement / interface | Method | Steps / how | Expected result |
-|---|---|---|---|---|---|
-| S3-U01 | statistics self-consistent (min ≤ max, 0..100) | | auto | `subsystem3_test.c` | `[TEST] S3-U01 PASS` |
+Known limits found by the tests (recorded, not hidden):
 
-*Method:* **auto** = `TEST_CHECK` in code, result printed on the console;
-**manual** = a person observes the result (LED, scope, meter, phone app…).
+* T_QUIET (150 ms) bounds the slowest decodable speed: a wide element of
+  3 x 3 mm = 9 mm must take < 150 ms, so the car must cross a barcode at
+  >= 6 cm/s. The quiet timeout can be raised in `app_cal.h` if the bench
+  speed is lower, at the cost of a slower result after the last bar.
+* Element widths are stored in 8 us units (uint16, 524 ms range) to match the
+  EdgeRing representation; a microsecond uint16 would have saturated at
+  65 ms (found by H-BC-01 at 10 cm/s before the change).
 
-## Results
+## On-target (`make SMP=0 NET=lwip MQTT=1 TEST=1`, no sensor needed)
 
-Add a new row for every run. Never edit or delete old rows.
+| ID | Check | Result | Log |
+|---|---|---|---|
+| S3-U01a-b | ADC0 (GP26) and ADC1 (GP27) convert, values <= 4095 | NOT RUN | |
+| S3-U02a-b | LineSensingTask 100 +-5 cycles/s; longest cycle < 300 us | NOT RUN | |
+| S3-U03 | LineState seq changes within 15 ms (NFR3) | NOT RUN | |
+| S3-U04 | disarmed decoder ignores a forced GP7 edge | NOT RUN | |
+| S3-U05a-e | ARM -> WAIT_QUIET; forced Code 39 'A' -> LEFT, 'D' -> UTURN, 'Z' -> INV_NO_MATCH through ISR -> EdgeRing -> task -> `g_barcode_byte` + EVT_BARCODE | NOT RUN | |
+| S3-U06 | DISARM -> DISARMED | NOT RUN | |
 
-| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
-|---|---|---|---|---|---|---|
-| YYYY-MM-DD | S3-U01 | `abc1234` | | PASS / FAIL | `logs/YYYY-MM-DD_….txt` | |
+S3-U05 forces the GP7 interrupt with 3 ms / 9 ms element timing from the
+test task, so it exercises the real kernel path without a sensor; it does
+not prove the optical side.
+
+## Bench procedures owned by this subsystem (docs/HARDWARE_VALIDATION.md)
+
+HV-10 IR analogue polarity, references (`APP_CAL_IR_DARK_IS_HIGH`,
+`APP_CAL_LINE_INIT_WHITE/BLACK`) and the error-sign hand sweep on the real
+bracket (left sensor lighter + centre darker = line right); HV-11 barcode
+sensor DOUT edge timing at the planned speed (NFR4).

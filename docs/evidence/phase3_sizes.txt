@@ -1,0 +1,36 @@
+# Phase 3 linked sizes (arm-none-eabi-nm -S, SMP=1 NET=lwip MQTT=1 TEST=1 image, 2026-10-23)
+20014188 00000001 B g_barcode_byte
+20014210 00000004 B g_line_state
+20014404 00000004 b g_s3_bc_last_edge_us
+200144ac 00000014 b g_s3_line
+10018430 00000060 T drv_line_adc_read
+10018cbc 00000074 t barcode_edge_isr
+2001418c 00000084 B g_edge_ring
+20014408 00000094 b g_s3_bc
+1001826c 00000098 T barcode_core_quiet
+10018198 000000a4 T barcode_core_decode
+10018304 000000d4 T barcode_core_edge
+10018f40 00000138 T s3_line_cycle
+100184c4 000002dc T line_core_step
+
+# size (text data bss) per profile
+Linker: mtk3pico_smp0_usb_cdc_wifi.elf
+Finished building target: mtk3pico_smp0_usb_cdc_wifi.elf
+arm-none-eabi-size mtk3pico_smp0_usb_cdc_wifi.elf
+ 278736	    116	  21088	 299940	  493a4	mtk3pico_smp0_usb_cdc_wifi.elf
+Linker: mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+Finished building target: mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+arm-none-eabi-size mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+ 332784	    124	  78860	 411768	  64878	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt.elf
+Linker: mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+Finished building target: mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+arm-none-eabi-size mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+ 339792	    124	  78880	 418796	  663ec	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+Linker: mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
+Finished building target: mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
+arm-none-eabi-size mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
+ 346072	    136	  83008	 429216	  68ca0	mtk3pico_smp1_usb_cdc_wifi_lwip_mqtt_test.elf
+Linker: mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+Finished building target: mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+arm-none-eabi-size mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
+ 339792	    124	  78880	 418796	  663ec	mtk3pico_smp0_usb_cdc_wifi_lwip_mqtt_test.elf
