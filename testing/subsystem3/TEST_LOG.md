@@ -48,6 +48,20 @@ Known limits found by the tests (recorded, not hidden):
 | S3-U05a-e | ARM -> WAIT_QUIET; forced Code 39 'A' -> LEFT, 'D' -> UTURN, 'Z' -> INV_NO_MATCH through ISR -> EdgeRing -> task -> `g_barcode_byte` + EVT_BARCODE | NOT RUN | |
 | S3-U06 | DISARM -> DISARMED | NOT RUN | |
 
+### Run history (add a row for every run; never edit or delete old rows)
+
+| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|
+| 2026-10-26 | S3-U01..U06 | `b0605d1` (feat/IRsensorandbarcode) | Adrian for Buddy 3 | REPORTED PASS 12/12, **console log not committed** | commit message only | Claimed in the commit message of `b0605d1`; no capture under `testing/subsystem3/logs/`. Treated as NOT RECORDED until the console text is added. Also reported: host `test_line` 114/114. |
+| 2026-10-26 | S3-U07 live line loop, S3-U08 barcode loop | `b0605d1` | Adrian for Buddy 3 | diagnostic only | - | Both loops ship off (`S3_T_LIVE_LOOP 0`, `S3_T_BC_LOOP 0`); no readings recorded in the repo. HV-10 / HV-11 still unsigned. |
+| 2026-10-27 | merge | `719e498` | Claude (for Buddy 4, integration) | BUILD PASS | `docs/evidence/merge_*` | Branch merged into the unified branch; 4 profiles build with 0 warnings; host 114/114; gate PASS. Nothing run on hardware here. |
+
+Known interaction (reported by Buddy 3 and Buddy 4): **S1-U06 fails once
+LineSensingTask runs** because that test writes a pattern into
+`g_line_state`, which the real task overwrites every 10 ms. Test design
+issue, not a firmware bug; see `testing/subsystem1/TEST_LOG.md`.
+
+
 S3-U05 forces the GP7 interrupt with 3 ms / 9 ms element timing from the
 test task, so it exercises the real kernel path without a sensor; it does
 not prove the optical side.

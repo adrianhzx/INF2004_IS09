@@ -44,6 +44,15 @@ Limits recorded by the tests:
 | S5-U05 | TRIG stays low while `APP_CAL_ECHO_SHIFTER_VERIFIED == 0` | NOT RUN | |
 | S5-U06 | no stop latched by the scan subsystem alone | NOT RUN | |
 
+### Run history (add a row for every run; never edit or delete old rows)
+
+| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|
+| 2026-10-26 | S5-U01..U06 | `0efba82` (feat/obstacle-detect-avoid) | Adrian (Buddy 5) | REPORTED PASS 16/16 with both gates OFF, **console log not committed** | commit message only | Needed the dispatcher fix in `app_hw.c` (forced INTF bits released, now merged). No capture under `testing/subsystem5/logs/`; treated as NOT RECORDED until added. HV-5 (ECHO shifter) and HV-7 (servo limits) still unsigned, so TRIG and GP15 stay gated. |
+| 2026-10-26 | S5-U07 live ranging, S5-U08 servo sweep | `0efba82` | Adrian | not runnable yet | - | Both compile only behind `APP_CAL_ECHO_SHIFTER_VERIFIED` / `APP_CAL_SERVO_ARMED`, which are 0 until HV-5 / HV-7 are signed. |
+| 2026-10-27 | merge | `719e498` | Claude (for Buddy 4, integration) | BUILD PASS | `docs/evidence/merge_*` | Branch merged into the unified branch; 4 profiles build with 0 warnings; host 37/37; gate PASS. Nothing run on hardware here. |
+
+
 With both gates signed (HV-5, HV-7) the same image ranges for real; S5-U03
 then prints the measured profile of whatever is in front of the car.
 

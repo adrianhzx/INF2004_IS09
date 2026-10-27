@@ -136,7 +136,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 4 IMU | DONE (host-verified, target-built, bench NOT RUN) | see section 9 |
 | 5 Obstacle | DONE (host-verified, target-built, bench NOT RUN, outputs gated) | see section 10 |
 | 6 Wi-Fi/MQTT | CODE COMPLETE, BENCH NOT VERIFIED: TelemetryCommsTask (Buddy 1, host 62 PASS, on-target S1-U01..U10 10/0 on 22 Oct) + `mqtt_utk.c` bridge with fix2 merged 23 Oct (D-10 HOLD for agreement). Bench B1 FAILED on the pre-fix bridge (silent stall at 48.8 s); fix2 NOT RUN on hardware | see section 11, testing/subsystem1/TEST_LOG.md |
-| 7 Integration | NOT STARTED | |
+| 7 Integration | STARTED 27 Oct: step 1 (convergence of the five subsystem branches) DONE at `c3920d3`; VehicleControllerTask S2-S6 NOT STARTED | see section 12 |
 | 8 Evidence | NOT STARTED | |
 
 ## 6. Phase 1 record (shared interface, codecs, safety foundation)
@@ -438,3 +438,89 @@ gate, and the documentation below.
 Status: BUILD PASS, HOST TEST PASS, TARGET (merged image) NOT RUN, BENCH NOT
 VERIFIED since fix2. Next: PHASE 7 (VehicleControllerTask S2-S6 and full
 integration).
+
+## 12. Phase 7, step 1: convergence of the teammate branches (27 Oct 2026)
+
+### What was merged
+
+GitHub held four branches that each started from `c3c7dcf` (Phase 0/1 +
+Buddy 1's Phase 6 + 22 Oct evidence) and carried one of this session's
+subsystems plus the owner's live-loop tests:
+
+| Branch | Tip | Added on top of the Phase files | Merge commit |
+|---|---|---|---|
+| `feat/obstacle-detect-avoid` (Adrian, B5) | `0efba82` | `app_hw.c` dispatcher releases forced INTF bits; S5-U07 live ranging, S5-U08 servo sweep (behind the hardware gates) | via `719e498` |
+| `feat/IRsensorandbarcode` (Adrian for B3) | `b0605d1` | TEST-only barcode debug capture (`dbg_width[]`, `s3_barcode_dbg_last/stats`); S3-U07 live line loop, S3-U08 barcode diagnostic loop (both off) | `719e498` |
+| `feat/imu-hump-detection` (Wong Wei Qi, B4) | `8af4bdc` | S4-U07 live IMU loop with bus-level check and I2C address scan (off); `README_BUDDY4.txt` (dropped) | `c3920d3` |
+| `feat/revb-autonomous-integration` (GitHub tip) | `c3c7dcf` | already contained since `10ca7c8` | - |
+
+Conflicts: `barcode_core.[ch]`, `task_barcode.c`, `subsystem3.h`,
+`subsystem3_test.c`, `subsystem5_test.c`, `subsystem4_test.c` (both sides
+carried the Phase 3/4/5 files; the branches add to them). Every branch
+version was a pure superset of the unified-branch version (checked with
+`git diff a186eb4 <tip> -- <file>`), so the branch versions were taken.
+`.gitignore` keeps the host-binary entries; the ledger and TEST_LOGs kept
+the unified-branch text (the teammates' copies were the `c3c7dcf` ones).
+
+Net source change versus `a186eb4`: 8 files, +600 lines, all inside
+`#if APP_TEST` / hardware-gate blocks except the 10-line dispatcher fix.
+
+### The dispatcher fix (`app_hw.c`, from `0efba82`)
+
+`app_hw_gpio_irq_take_all()` now reads `PROC0_INTF`, and for every forced
+bit it is reporting, clears it. Without this a forced GPIO event (used by
+SH-U, S3-U05, S5-U02) keeps IO_IRQ_BANK0 asserted, the dispatcher
+re-enters forever and the test task never runs again. Production paths are
+unaffected: INTF is written only by `app_hw_gpio_irq_force()` in TEST code.
+Reviewed: the read-and-clear is inside the existing handler, uses the
+existing `clr_w` atomic-clear alias, and masks with `ints` so a bit forced
+after the read is reported on the next entry, not lost.
+
+### Validation of the converged tree (`c3920d3`, this container, 27 Oct)
+
+| Check | Command | Result |
+|---|---|---|
+| Demo image | `make SMP=0 NET=lwip MQTT=1 -j8` | PASS, 0 warnings, text 347054 / data 0 / bss 79252 (`a186eb4`: 347030; +24 B = dispatcher fix) |
+| Test image | `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings, 362890 / 0 / 79476 |
+| Radio-less | `make SMP=0 -j8` | PASS, 0 warnings, 291662 / 0 / 21432 |
+| SMP=1 regression | `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings, 369458 / 0 / 83604 (not the validated profile) |
+| Host suites | `testing/host`: shared / motion / line / imu / scan; `testing/subsystem1/host` | 418 / 56 / 114 / 56 / 37 / 62 passed, 0 failed |
+| Decoder parity | `tools/telem_decode.py --selftest` | 7 vectors ok |
+| BARR-C gate | `tools/barr-c/check_app.sh` | PASS |
+| Anything on hardware | - | **NOT RUN** here |
+
+Logs: `docs/evidence/merge_*`. Toolchain arm-none-eabi-gcc 13.2.1, pico-sdk
+2.2.0 (same as section 0).
+
+### Teammate hardware claims (recorded, not verified)
+
+The three commit messages claim on-target passes (S5-U01..U06 16/16 with
+gates off; S3-U01..U06 12/12; S4-U01..U03, U04a, U05, U06). **No console
+capture exists in the repository for any of them**, so every row in
+`testing/subsystem{3,4,5}/TEST_LOG.md` stays NOT RUN and the claims are
+logged in the new run-history tables as "REPORTED, console log not
+committed". S4-U04b/c (level pitch, no episode) are not claimed and remain
+open together with HV-12. Buddy 2's motion code has been bench-tested
+according to the user (26 Oct) but nothing on GitHub shows it.
+
+Cross-subsystem finding from the bench (B3 and B4, independently): S1-U06
+fails once LineSensingTask / ImuTask run, because the test writes patterns
+into the two blackboard words that the real tasks overwrite every 10 ms.
+Test design, not firmware; owner Xavier (row added to
+`testing/subsystem1/TEST_LOG.md`).
+
+### Status statements (honest)
+
+BUILD PASS (4 profiles). HOST TEST PASS (743 checks). TARGET NOT RUN on the
+converged image. HARDWARE NFR1 NOT RUN. INTEGRATED AUTONOMY NOT VERIFIED.
+Motion, TRIG and servo remain disarmed by configuration.
+
+### Next executable step
+
+PHASE 7, step 2: `app_program/shared/vehicle_controller.c` S2 FOLLOW_LINE,
+S3 EXECUTE_NAV, S4 OBSTACLE_BYPASS (six actions, side ranging, bounded
+retry), S5 LINE_SEARCH, S6 COMPLETE, remote START/STOP, hump concurrency,
+`g_ctrl_heartbeat`; host test with a simulated plant in
+`testing/host/test_controller.c`; motion stays disarmed. Before that, the
+user pushes this branch (bundle) so GitHub carries Phases 2-6 and the
+convergence.

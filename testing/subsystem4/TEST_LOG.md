@@ -45,6 +45,20 @@ Limits recorded by the tests:
 | S4-U05 | a tap at rest does not latch a stop (D-18) | NOT RUN | |
 | S4-U06 | ImuState refreshed within 15 ms | NOT RUN | |
 
+### Run history (add a row for every run; never edit or delete old rows)
+
+| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|
+| 2026-10-26 | S4-U01..U03, U04a, U05, U06 | `8af4bdc` (feat/imu-hump-detection) | Wong Wei Qi (Buddy 4) | REPORTED PASS, **console log not committed** | commit message / zip notes only | Reported: ImuTask ~100 cycles/s, longest cycle 438 us, I2C scan finds 0x19 and 0x1E, host `test_imu` 56/56. **S4-U04b (level pitch) and S4-U04c are not listed as passed: treat as OPEN** (HV-12 axis signs unsigned). No capture under `testing/subsystem4/logs/`; treated as NOT RECORDED until added. |
+| 2026-10-26 | behaviour note | `8af4bdc` | Wong Wei Qi | - | - | On that branch (no motion subsystem) ImuState quality stays INVALID and the STALE_MOTION fault is set: expected, the hump estimate needs wheel distance (D-18). Resolved by the unified branch, which carries subsystem2. |
+| 2026-10-27 | merge | `c3920d3` | Claude (for Buddy 4, integration) | BUILD PASS | `docs/evidence/merge_*` | Branch merged into the unified branch; 4 profiles build with 0 warnings; host 56/56; gate PASS. Nothing run on hardware here. |
+
+Known interaction (reported by Buddy 3 and Buddy 4): **S1-U06 fails once
+ImuTask runs** because that test writes a pattern into `g_imu_state`, which
+the real task overwrites every 10 ms. Test design issue, not a firmware bug;
+see `testing/subsystem1/TEST_LOG.md`.
+
+
 Also planned (needs the car moving, Phase 7 integration): forced collision
 on blocks with the wheels spinning (COLLISION latched, IMU_FAULT set, cleared
 after recovery), one reference hump per quality.
