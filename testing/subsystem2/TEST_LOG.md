@@ -30,6 +30,13 @@ proves the logic and the sign conventions, not the physical gains.
 | S2-U05a-d | core on ARM: reverse MOVE signs, latch same-cycle brake, stale command rejected | NOT RUN | |
 | S2-U06 | (ARMED only) MOVE 200 mm through the task on blocks completes OK | NOT RUN (disarmed) | |
 
+### Run history (add a row for every run; never edit or delete old rows)
+
+| Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
+|---|---|---|---|---|---|---|
+| 2026-10-27 | S2-U01..U05 (two runs) | `57a1be1` tree (converged TEST image) | Wong Wei Qi | PASS 12/0, S2-U06 NOT RUN (disarmed) | `testing/system/logs/2026-10-27_test_image_full_run_converged.txt` | First recorded on-target run of the motion subsystem: compares 0 after init, 20 kHz wrap, task 100 cycles/s, longest cycle 110 / 125 us, no encoder edges or glitches at rest, MOVE rejected while disarmed, reverse MOVE path and latch handling. Motors were not energised (`APP_CAL_MOTION_ARMED 0`); HV-3/HV-4 still unsigned. |
+
+
 ## Bench procedures owned by this subsystem (docs/HARDWARE_VALIDATION.md)
 
 HV-3 geometry and ticks/rev, HV-4 polarity and brake, HV-9 NFR1 brake

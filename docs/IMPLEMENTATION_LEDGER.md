@@ -515,6 +515,34 @@ BUILD PASS (4 profiles). HOST TEST PASS (743 checks). TARGET NOT RUN on the
 converged image. HARDWARE NFR1 NOT RUN. INTEGRATED AUTONOMY NOT VERIFIED.
 Motion, TRIG and servo remain disarmed by configuration.
 
+### First on-target run of the converged image (27 Oct, Wong Wei Qi)
+
+The user flashed the converged TEST image (`57a1be1` tree) twice and
+attached the USB console text, now at
+`testing/system/logs/2026-10-27_test_image_full_run_converged.txt`:
+
+| Suite | Result | Note |
+|---|---|---|
+| S1-U01..U10 | 9/1, **S1-U06 FAIL** both runs | the predicted test-design failure (pattern overwritten by the live tasks) |
+| S2-U01..U05 | 12/0 (U06 NOT RUN, disarmed) | first recorded motion run on target |
+| S3-U01..U06 | 12/0 | first recorded log |
+| S4-U01..U06 | 9/0, **U04b and U04c now PASS** | rest vector |a| = 0.88 g: check scale at HV-12 |
+| S5-U01..U06 | 16/0 (U07/U08 skipped, gates off) | first recorded log |
+| SH-U01..U08 | 16/0 | all tasks live; SH-U04c window 3 us |
+
+Every suite's TEST_LOG has the row. This is bench self-test evidence
+(forced interrupts, outputs gated), not course-trial evidence: HV-1..HV-15
+remain unsigned and NFR1 is still unmeasured.
+
+**S1-U06 rewritten** (commit after `57a1be1`): `subsystem1.c` keeps, in
+TEST builds only, the line and IMU words it read for the latest snapshot
+with that snapshot's seq behind a generation counter
+(`subsystem1_test_snap_inputs`); the test compares every decoded snapshot
+with the words of the same seq and passes on >= 8 compared, 0 mismatched.
+The test no longer writes into `g_line_state` / `g_imu_state`. Demo image
+byte count unchanged (hook compiled out). TEST image +372 B text. Awaiting
+one re-run on the car.
+
 ### Next executable step
 
 PHASE 7, step 2: `app_program/shared/vehicle_controller.c` S2 FOLLOW_LINE,

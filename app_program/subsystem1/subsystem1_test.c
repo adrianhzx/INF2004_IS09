@@ -29,6 +29,7 @@
 
 #define S1T_MARK_BASE 0xA500U /* payload marker for S1-U09 events */
 #define S1T_MARK_COUNT 10U
+#define S1T_U06_MIN_CHECKED 8U /* of the 10-12 snapshots in 2.1 s */
 
 typedef struct
 {
@@ -36,12 +37,48 @@ typedef struct
     uint32_t snap_seq_gaps;
     int32_t  last_snap_seq; /* -1 = none yet */
     uint32_t snap_decode_fail;
-    uint32_t marks;       /* S1-U09 marker events seen */
-    uint32_t dropped_evt; /* last APP_TEV_DROPPED payload + 1 (0 = none) */
+    uint32_t marks;         /* S1-U09 marker events seen */
+    uint32_t dropped_evt;   /* last APP_TEV_DROPPED payload + 1 (0 = none) */
+    uint32_t snap_checked;  /* S1-U06: snapshots compared with their inputs */
+    uint32_t snap_mismatch; /* S1-U06: fields differing from those inputs */
     app_snapshot_t  last_snap;
     app_heartbeat_t last_hb;
     bool            have_hb;
 } s1t_seen_t;
+
+/** S1-U06: compare a decoded snapshot with the line and IMU blackboard words
+ *  the task captured when it built that same seq. The live LineSensingTask
+ *  and ImuTask rewrite both words every 10 ms, so the comparison must be
+ *  against what the task actually read, never against a value written by
+ *  the test (that version of the test failed on 26-27 Oct for that reason).
+ *  A snapshot whose seq does not match the capture (the task is already on
+ *  the next one) is simply not counted. */
+static void
+s1t_check_snap_inputs (app_snapshot_t const * p_snap, s1t_seen_t * p_seen)
+{
+    uint8_t          seq       = 0U;
+    uint32_t         line_word = 0U;
+    uint32_t         imu_word  = 0U;
+    app_line_state_t line;
+    app_imu_state_t  imu;
+
+    if (!subsystem1_test_snap_inputs(&seq, &line_word, &imu_word) ||
+        (seq != p_snap->seq))
+    {
+        return;
+    }
+    app_line_unpack(line_word, &line);
+    app_imu_unpack(imu_word, &imu);
+    p_seen->snap_checked++;
+    if ((p_snap->line_error != line.line_error) ||
+        (p_snap->on_line != line.on_line) ||
+        (p_snap->hump_max_mm != imu.max_height_mm) ||
+        (p_snap->hump_active != imu.hump_active) ||
+        (p_snap->motion_class != imu.motion_class))
+    {
+        p_seen->snap_mismatch++;
+    }
+}
 
 static bool
 s1t_streq (char const * p_a, char const * p_b)
@@ -90,6 +127,7 @@ s1t_classify (uint8_t const * p_msg, uint32_t len, s1t_seen_t * p_seen)
         }
         p_seen->last_snap_seq = (int32_t) snap.seq;
         p_seen->last_snap     = snap;
+        s1t_check_snap_inputs(&snap, p_seen);
     }
     else if ((uint32_t) S1_TOPIC_HB == t)
     {
@@ -151,6 +189,8 @@ s1t_seen_init (s1t_seen_t * p_seen)
     p_seen->snap_seq_gaps    = 0U;
     p_seen->last_snap_seq    = -1;
     p_seen->snap_decode_fail = 0U;
+    p_seen->snap_checked     = 0U;
+    p_seen->snap_mismatch    = 0U;
     p_seen->marks            = 0U;
     p_seen->dropped_evt      = 0U;
     p_seen->have_hb          = false;
@@ -212,8 +252,6 @@ subsystem1_test (void)
     uint32_t          t_on   = 0U;
     uint32_t          max_us = 0U;
     uint8_t           drop0  = 0U;
-    uint32_t          line0  = 0U;
-    uint32_t          imu0   = 0U;
     uint8_t           gen0   = 0U;
     uint32_t          cyc0   = 0U;
     TEST_INIT();
@@ -286,25 +324,14 @@ subsystem1_test (void)
     TEST_CHECK("S1-U04", (max_us <= 50U) && (app_ipc_telem_dropped() > drop0),
                "40 posts while offline: each <= 50 us, drops counted");
 
-    /* S1-U05..U07: online. A known pattern in two placeholder blackboards
-       proves the blackboard -> wire path; restored afterwards. */
-    line0 = g_line_state;
-    imu0  = g_imu_state;
-    {
-        app_line_state_t ls = {-37, 12, true, (uint8_t) APP_LINE_EVT_NONE, 5U};
-        app_imu_state_t  is = {8, 0U, 3U, 20U, 42U, 2U, true};
-        uint32_t         w  = 0U;
-        (void) app_line_pack(&ls, &w);
-        g_line_state = w;
-        (void) app_imu_pack(&is, &w);
-        g_imu_state = w;
-    }
+    /* S1-U05..U07: online. The blackboard -> wire path (S1-U06) is proved by
+       comparing every snapshot with the live words the task read for it
+       (s1t_check_snap_inputs); the test writes nothing into another task's
+       blackboard. */
     s1t_seen_init(&seen);
     subsystem1_test_link(S1_LINK_FORCE_ONLINE);
     t_on = app_ipc_ms();
     s1t_drain(2100U, &seen);
-    g_line_state = line0;
-    g_imu_state  = imu0;
 
     TEST_CHECK("S1-U05",
                (APP_CONN_ONLINE == s1t_conn()) &&
@@ -319,12 +346,20 @@ subsystem1_test (void)
               (unsigned) seen.n[S1_TOPIC_SNAP], (unsigned) seen.n[S1_TOPIC_HB],
               (unsigned) seen.n[S1_TOPIC_EVT], (unsigned) seen.n[S1_TOPIC_OBS]);
 
+    tm_printf((UB *) "[TEST] S1-U06 INFO  %u snapshots compared with their "
+                     "blackboard inputs, %u mismatched; last: err=%d on=%u "
+                     "hump_max=%u active=%u class=%u\n",
+              (unsigned) seen.snap_checked, (unsigned) seen.snap_mismatch,
+              (int) seen.last_snap.line_error,
+              (unsigned) seen.last_snap.on_line,
+              (unsigned) seen.last_snap.hump_max_mm,
+              (unsigned) seen.last_snap.hump_active,
+              (unsigned) seen.last_snap.motion_class);
     TEST_CHECK("S1-U06",
-               (seen.last_snap.line_error == -37) && seen.last_snap.on_line &&
-                   (seen.last_snap.hump_max_mm == 42U) &&
-                   seen.last_snap.hump_active &&
-                   (seen.last_snap.motion_class == 2U),
-               "snapshot carries the blackboard values (line, IMU fields)");
+               (seen.snap_checked >= S1T_U06_MIN_CHECKED) &&
+                   (0U == seen.snap_mismatch),
+               "snapshot carries the live blackboard values (line, IMU "
+               "fields) it was built from");
 
     tm_printf((UB *) "[TEST] S1-U07 INFO  hb %u (decoded %u, conn %u), evt %u, "
                      "drop report %s\n",

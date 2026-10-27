@@ -55,6 +55,7 @@ Known limits found by the tests (recorded, not hidden):
 | 2026-10-26 | S3-U01..U06 | `b0605d1` (feat/IRsensorandbarcode) | Adrian for Buddy 3 | REPORTED PASS 12/12, **console log not committed** | commit message only | Claimed in the commit message of `b0605d1`; no capture under `testing/subsystem3/logs/`. Treated as NOT RECORDED until the console text is added. Also reported: host `test_line` 114/114. |
 | 2026-10-26 | S3-U07 live line loop, S3-U08 barcode loop | `b0605d1` | Adrian for Buddy 3 | diagnostic only | - | Both loops ship off (`S3_T_LIVE_LOOP 0`, `S3_T_BC_LOOP 0`); no readings recorded in the repo. HV-10 / HV-11 still unsigned. |
 | 2026-10-27 | merge | `719e498` | Claude (for Buddy 4, integration) | BUILD PASS | `docs/evidence/merge_*` | Branch merged into the unified branch; 4 profiles build with 0 warnings; host 114/114; gate PASS. Nothing run on hardware here. |
+| 2026-10-27 | S3-U01..U06 (two runs) | `57a1be1` tree (converged TEST image) | Wong Wei Qi | PASS 12/0 | `testing/system/logs/2026-10-27_test_image_full_run_converged.txt` | First recorded log. ADC raw at rest left 186/206, centre 295/281 (sensor on the bench, not over the line), task 100 cycles/s, longest cycle 85 / 78 us, forced 'A'/'D'/'Z' decode through ISR -> EdgeRing -> task, 91 edges, 0 ring overflow. HV-10/HV-11 still unsigned. |
 
 Known interaction (reported by Buddy 3 and Buddy 4): **S1-U06 fails once
 LineSensingTask runs** because that test writes a pattern into

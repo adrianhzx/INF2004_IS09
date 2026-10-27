@@ -69,6 +69,15 @@ static bool             g_s1_have_loop      = false;
 
 #if APP_TEST
 static volatile uint8_t g_s1_link_mode = (uint8_t) S1_LINK_REAL;
+#if APP_TEST
+/* S1-U06 capture: generation is odd while the three values are being
+   written (single writer: this task; single reader: the test task). */
+static volatile uint32_t g_s1_dbg_gen       = 0U;
+static volatile uint32_t g_s1_dbg_line_word = 0U;
+static volatile uint32_t g_s1_dbg_imu_word  = 0U;
+static volatile uint8_t  g_s1_dbg_snap_seq  = 0U;
+static volatile bool     g_s1_dbg_valid     = false;
+#endif
 #endif
 
 static char const * const g_s1_conn_names[] = {
@@ -311,6 +320,14 @@ s1_publish_snapshot (void)
 
     s1_snapshot_build(&in, g_s1_snap_seq, &snap);
     (void) app_snapshot_encode(&snap, frame);
+#if APP_TEST
+    g_s1_dbg_gen++; /* odd: writing */
+    g_s1_dbg_line_word = in.line_word;
+    g_s1_dbg_imu_word  = in.imu_word;
+    g_s1_dbg_snap_seq  = g_s1_snap_seq;
+    g_s1_dbg_valid     = true;
+    g_s1_dbg_gen++; /* even: complete */
+#endif
     if (s1_out_send(S1_TOPIC_SNAP, frame, APP_SNAPSHOT_BYTES))
     {
         g_s1_snap_seq++;
@@ -576,5 +593,21 @@ subsystem1_test_link (s1_link_mode_t mode)
         mqtt_utk_bridge_attach(0, 0, NULL);
         g_s1_link_mode = (uint8_t) mode;
     }
+}
+
+EXPORT bool
+subsystem1_test_snap_inputs (uint8_t * p_seq, uint32_t * p_line_word,
+                             uint32_t * p_imu_word)
+{
+    uint32_t const g0 = g_s1_dbg_gen;
+
+    if ((0U != (g0 & 1U)) || !g_s1_dbg_valid)
+    {
+        return false;
+    }
+    *p_seq       = g_s1_dbg_snap_seq;
+    *p_line_word = g_s1_dbg_line_word;
+    *p_imu_word  = g_s1_dbg_imu_word;
+    return g0 == g_s1_dbg_gen;
 }
 #endif

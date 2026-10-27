@@ -63,6 +63,12 @@ typedef enum
 } s1_link_mode_t;
 
 void subsystem1_test_link (s1_link_mode_t mode);
+
+/** Test-only (S1-U06): the line and IMU blackboard words the task read when
+ *  it built the most recent snapshot, with that snapshot's seq. Returns false
+ *  while the task is writing them (try again) or before the first snapshot. */
+bool subsystem1_test_snap_inputs (uint8_t * p_seq, uint32_t * p_line_word,
+                                  uint32_t * p_imu_word);
 #endif
 
 #endif /* SUBSYSTEM1_H */

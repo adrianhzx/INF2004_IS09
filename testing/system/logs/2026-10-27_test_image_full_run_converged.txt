@@ -1,0 +1,248 @@
+=== IS09 autonomous car, micro T-Kernel on Pico W (spec 0x6300, product 0x0003) ===
+single-core build (demo profile)
+hw self-check: 0x7 (timer 1, pwm 1, io 1)
+all subsystems started; motion armed=0, echo verified=0
+[TEST] === test run start ===
+[TEST] S1-U01 PASS  MBF_TELEM_EVT/OUT/IN created (4 / 43 / 8 B messages)
+[TEST] S1 INFO  radio init complete after 0 ms
+[TEST] S1-U02 INFO  longest gap between loops since boot = 0 us
+telem: ONLINE
+mqtt: bridge subscribed to is09/is09-car/cmd
+[TEST] S1-U02 INFO  longest gap during the test window = 30804 us
+[TEST] S1-U02 INFO  34 loops in 1 s
+[TEST] S1-U02 PASS  TelemetryCommsTask loop runs 33-51 times per second
+telem: WIFI_CONNECTING
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 0"
+[TEST] S1-U03 INFO  conn 0, faults 0x0010, snap 5->5, evt 7->7, loops 38->71
+[TEST] S1-U03 PASS  offline: WIFI_CONNECTING, WIFI_LOSS set, no publish for 1 s
+[TEST] S1-U04 INFO  longest post = 43 us
+[TEST] S1-U04 PASS  40 posts while offline: each <= 50 us, drops counted
+telem: ONLINE
+[TEST] S1-U05 PASS  online: 10-12 snapshots in 2.1 s (200 ms), seq unbroken, all decode
+[TEST] S1-U05 INFO  snap 11, hb 3, evt 34, obs 0
+[TEST] S1-U06 FAIL  snapshot carries the blackboard values (line, IMU fields)   (../app_program/subsystem1/subsystem1_test.c:322)
+[TEST] S1-U07 INFO  hb 3 (decoded 1, conn 2), evt 34, drop report seen
+[TEST] S1-U07 PASS  heartbeat 1 s (2-4 in 2.1 s), backlog drained, drop count reported
+[TEST] S1-U08 PASS  bad CRC, bad length, START in guard, replay rejected; valid START accepted once
+mqtt: TX [mtk3smp-pico/heartbeat] "hb 1"
+[TEST] S1-U09 PASS  bridge stalled 500 ms: loop runs, OUT full counted, all 10 events delivered after
+[TEST] S1-U10 INFO  cyclic 100 per s, longest telemetry loop 890 us
+[TEST] S1-U10 PASS  cyclic 100 +-2 per s under telemetry load; loop body <= 2 ms
+[TEST] subsystem1 SUMMARY 9 passed, 1 failed
+[TEST] S2-U01a PASS  left motor compares 0 (brake) after init
+[TEST] S2-U01b PASS  right motor compares 0 (brake) after init
+[TEST] S2-U01c PASS  PWM wrap 6249 = 20 kHz at 125 MHz
+mqtt: bridge subscribed to is09/is09-car/cmd
+[TEST] S2-U02a PASS  MotionControlTask 100 +-5 cycles per second
+[TEST] S2-U02b INFO  longest motion cycle = 110 us
+[TEST] S2-U02b PASS  cycle work < 1 ms
+[TEST] S2-U03a PASS  no encoder edges while stationary
+[TEST] S2-U03b PASS  no quadrature glitches at rest
+[TEST] S2-U04 PASS  MOVE rejected while disarmed: BRAKED, compares 0
+[TEST] S2-U05a PASS  reverse MOVE accepted: both PWM negative
+[TEST] S2-U05b PASS  signed reverse distance and direction bits
+[TEST] S2-U05c PASS  latch -> brake, flush, STOP_LATCHED, ABORTED in the same cycle
+[TEST] S2-U05d PASS  command after latch rejected
+[TEST] S2-U06 NOT RUN (APP_CAL_MOTION_ARMED = 0; see HV-3/HV-4)
+[TEST] subsystem2 SUMMARY 12 passed, 0 failed
+[TEST] S3-U01a PASS  ADC0 (GP26) converts, 12-bit range
+[TEST] S3-U01b PASS  ADC1 (GP27) converts, 12-bit range
+[TEST] S3-U01 INFO  raw left=186 centre=295 errors=0
+[TEST] S3-U02a PASS  LineSensingTask 100 +-5 cycles/s
+[TEST] S3-U02b INFO  longest line cycle = 85 us
+[TEST] S3-U02b PASS  line cycle < 300 us
+[TEST] S3-U03 PASS  LineState seq changes within 15 ms
+[TEST] S3-U04 PASS  disarmed decoder ignores edges
+[TEST] S3-U05a PASS  ARM -> WAIT_QUIET
+[TEST] S3-U05b PASS  forced 'A' -> LEFT published
+[TEST] S3-U05c PASS  forced 'D' -> UTURN
+[TEST] S3-U05d PASS  forced 'Z' -> INV_NO_MATCH (known symbol, not a command)
+[TEST] S3-U05e PASS  decoder back in WAIT_QUIET
+[TEST] S3-U05 INFO  edges=91 results=3 ring overflow=0
+[TEST] S3-U06 PASS  DISARM -> DISARMED
+[TEST] subsystem3 SUMMARY 12 passed, 0 failed
+[TEST] S4-U01 PASS  LSM303DLHC answers: CTRL_REG1_A 0x57, IRA_REG_M 'H'
+[TEST] S4-U01 INFO  ctrl1=0x57 ira=0x48 aborts=0 timeouts=0
+[TEST] S4-U02a PASS  ImuTask 100 +-5 cycles/s
+[TEST] S4-U02b INFO  longest IMU cycle = 467 us, read errors = 0
+[TEST] S4-U02b PASS  IMU cycle < 600 us
+[TEST] S4-U03 INFO  x=-39 y=63 z=878 mg
+[TEST] S4-U03 PASS  |a| = 1 g +-20 % at rest
+[TEST] S4-U04a PASS  sensor healthy, IMU_FAULT clear
+[TEST] S4-U04b PASS  pitch within +-10 deg on a level bench (else fix APP_CAL_IMU_AXIS_*/SIGN)
+[TEST] S4-U04c PASS  no episode, no max, STATIONARY at rest
+[TEST] S4-U05 INFO  tap the car once now (2 s window)
+[TEST] S4-U05 PASS  a tap at rest does not latch a stop
+[TEST] S4-U06 PASS  ImuState refreshed within 15 ms
+[TEST] subsystem4 SUMMARY 9 passed, 0 failed
+[TEST] S5-U01a PASS  slice 7B compare = ahead pulse
+[TEST] S5-U01b PASS  GP15 routed to PWM only when APP_CAL_SERVO_ARMED
+[TEST] S5-U01 INFO  servo pulse=1500 us routed=0 enabled=0
+[TEST] S5-U02a PASS  forced rise/fall -> ECHO_DONE
+[TEST] S5-U02b PASS  width 580 +-60 us (10 cm)
+[TEST] S5-U02c PASS  us -> 10 cm
+[TEST] S5-U02d PASS  ECHO_DONE set on FLG_SCAN
+[TEST] S5-U02 INFO  width=616 us
+[TEST] S5-U02e PASS  stray falling edge ignored
+[TEST] S5-U02f PASS  > 30 ms echo -> OVERRUN
+[TEST] S5-U03a PASS  one profile request -> exactly one DONE or FAIL
+[TEST] S5-U03b PASS  profile copy under MTX_OBSTACLE
+[TEST] S5-U03c PASS  scan_state reflects the hardware gates
+[TEST] S5-U03 INFO  scan 0 ms state=6 action=0 width=0 closest=511 ymin=0 ymax=0
+[TEST] S5-U03d PASS  scan time within T_SCAN_TIMEOUT (NFR14 T_profile)
+[TEST] S5-U04a PASS  10 +-2 watch rangings per second
+[TEST] S5-U04b PASS  WATCH_OFF stops ranging
+[TEST] S5-U05 PASS  TRIG low while APP_CAL_ECHO_SHIFTER_VERIFIED == 0
+[TEST] S5-U06 PASS  scan subsystem never latches a stop by itself
+[TEST] S5-U07 INFO  skipped: live ranging needs APP_CAL_ECHO_SHIFTER_VERIFIED = 1 (HV-5)
+[TEST] S5-U08 INFO  skipped: servo sweep needs APP_CAL_SERVO_ARMED = 1 (HV-7)
+[TEST] subsystem5 SUMMARY 16 passed, 0 failed
+[TEST] SH-U01 PASS  cyclic handler 100 +-5 per second
+[TEST] SH-U02 PASS  1 MHz timer advances >= 9 ms over a 10 ms delay
+[TEST] SH-U03a PASS  test flag created
+[TEST] SH-U03b PASS  dispatcher attach on spare pin
+[TEST] SH-U03c PASS  second attach to the same pin is refused
+[TEST] SH-U03d PASS  flag set from GPIO ISR received within 100 ms
+[TEST] SH-U04a PASS  no lost fault bit over 10000 ISR/task RMW
+[TEST] SH-U04b PASS  ISR ran once per iteration
+[TEST] SH-U04c INFO  longest helper window = 3 us; incl. test force/timer setup = 5 us
+[TEST] SH-U04c PASS  helper masked window <= 5 us (design: ~10 cycles, SRAM)
+[TEST] SH-U05a PASS  LineState -100/+100 round trip, upper bits clear
+[TEST] SH-U05b PASS  MotionStatus signed distance min + flags round trip
+[TEST] SH-U06 PASS  100 event posts without waiting (< 10 ms)
+[TEST] SH-U07 PASS  latch clear refused from a non-controller task
+[TEST] SH-U08a PASS  STOP_LATCH set by ISR request
+[TEST] SH-U08b PASS  first stop cause wins
+[TEST] SH-U08c PASS  controller in S7 within 50 ms of EVT_SAFE_STOP
+[TEST] shared SUMMARY 16 passed, 0 failed
+[TEST] === test run end ===
+---- Closed the serial port COM5 ----
+---- Opened the serial port COM5 ----
+---- Closed serial port COM5 due to disconnection from the machine ----
+---- Opened the serial port COM5 ----
+
+=== IS09 autonomous car, micro T-Kernel on Pico W (spec 0x6300, product 0x0003) ===
+single-core build (demo profile)
+hw self-check: 0x7 (timer 1, pwm 1, io 1)
+all subsystems started; motion armed=0, echo verified=0
+[TEST] === test run start ===
+[TEST] S1-U01 PASS  MBF_TELEM_EVT/OUT/IN created (4 / 43 / 8 B messages)
+telem: WIFI_CONNECTING
+wifi: joining "Redmi Note 13 Pro 5G" ...
+wifi: link status -> joined AP, waiting for IP (1)
+[TEST] S1 INFO  radio init complete after 650 ms
+[TEST] S1-U02 INFO  longest gap between loops since boot = 30703 us
+[TEST] S1-U02 INFO  longest gap during the test window = 30703 us (no new maximum)
+[TEST] S1-U02 INFO  34 loops in 1 s
+[TEST] S1-U02 PASS  TelemetryCommsTask loop runs 33-51 times per second
+[TEST] S1-U03 INFO  conn 0, faults 0x0010, snap 0->0, evt 0->0, loops 57->90
+[TEST] S1-U03 PASS  offline: WIFI_CONNECTING, WIFI_LOSS set, no publish for 1 s
+[TEST] S1-U04 INFO  longest post = 38 us
+[TEST] S1-U04 PASS  40 posts while offline: each <= 50 us, drops counted
+telem: ONLINE
+wifi: link status -> FAILED (association failure) (-1)
+[TEST] S1-U05 PASS  online: 10-12 snapshots in 2.1 s (200 ms), seq unbroken, all decode
+[TEST] S1-U05 INFO  snap 11, hb 3, evt 34, obs 1
+[TEST] S1-U06 FAIL  snapshot carries the blackboard values (line, IMU fields)   (../app_program/subsystem1/subsystem1_test.c:322)
+[TEST] S1-U07 INFO  hb 3 (decoded 1, conn 2), evt 34, drop report seen
+[TEST] S1-U07 PASS  heartbeat 1 s (2-4 in 2.1 s), backlog drained, drop count reported
+[TEST] S1-U08 PASS  bad CRC, bad length, START in guard, replay rejected; valid START accepted once
+[TEST] S1-U09 PASS  bridge stalled 500 ms: loop runs, OUT full counted, all 10 events delivered after
+[TEST] S1-U10 INFO  cyclic 100 per s, longest telemetry loop 537 us
+[TEST] S1-U10 PASS  cyclic 100 +-2 per s under telemetry load; loop body <= 2 ms
+[TEST] subsystem1 SUMMARY 9 passed, 1 failed
+[TEST] S2-U01a PASS  left motor compares 0 (brake) after init
+[TEST] S2-U01b PASS  right motor compares 0 (brake) after init
+[TEST] S2-U01c PASS  PWM wrap 6249 = 20 kHz at 125 MHz
+wifi: joining "Redmi Note 13 Pro 5G" ...
+telem: WIFI_CONNECTING
+wifi: link status -> joined AP, waiting for IP (1)
+[TEST] S2-U02a PASS  MotionControlTask 100 +-5 cycles per second
+[TEST] S2-U02b INFO  longest motion cycle = 125 us
+[TEST] S2-U02b PASS  cycle work < 1 ms
+[TEST] S2-U03a PASS  no encoder edges while stationary
+[TEST] S2-U03b PASS  no quadrature glitches at rest
+[TEST] S2-U04 PASS  MOVE rejected while disarmed: BRAKED, compares 0
+[TEST] S2-U05a PASS  reverse MOVE accepted: both PWM negative
+[TEST] S2-U05b PASS  signed reverse distance and direction bits
+[TEST] S2-U05c PASS  latch -> brake, flush, STOP_LATCHED, ABORTED in the same cycle
+[TEST] S2-U05d PASS  command after latch rejected
+[TEST] S2-U06 NOT RUN (APP_CAL_MOTION_ARMED = 0; see HV-3/HV-4)
+[TEST] subsystem2 SUMMARY 12 passed, 0 failed
+[TEST] S3-U01a PASS  ADC0 (GP26) converts, 12-bit range
+[TEST] S3-U01b PASS  ADC1 (GP27) converts, 12-bit range
+[TEST] S3-U01 INFO  raw left=206 centre=281 errors=0
+[TEST] S3-U02a PASS  LineSensingTask 100 +-5 cycles/s
+[TEST] S3-U02b INFO  longest line cycle = 78 us
+[TEST] S3-U02b PASS  line cycle < 300 us
+[TEST] S3-U03 PASS  LineState seq changes within 15 ms
+[TEST] S3-U04 PASS  disarmed decoder ignores edges
+[TEST] S3-U05a PASS  ARM -> WAIT_QUIET
+[TEST] S3-U05b PASS  forced 'A' -> LEFT published
+wifi: link status -> joined AP, no IP yet (2)
+wifi: link up, ip=10.146.39.118
+telem: MQTT_CONNECTING
+mqtt: connected to 10.146.39.95
+telem: ONLINE
+mqtt: bridge subscribed to is09/is09-car/cmd
+[TEST] S3-U05c PASS  forced 'D' -> UTURN
+[TEST] S3-U05d PASS  forced 'Z' -> INV_NO_MATCH (known symbol, not a command)
+[TEST] S3-U05e PASS  decoder back in WAIT_QUIET
+[TEST] S3-U05 INFO  edges=91 results=3 ring overflow=0
+[TEST] S3-U06 PASS  DISARM -> DISARMED
+[TEST] subsystem3 SUMMARY 12 passed, 0 failed
+[TEST] S4-U01 PASS  LSM303DLHC answers: CTRL_REG1_A 0x57, IRA_REG_M 'H'
+[TEST] S4-U01 INFO  ctrl1=0x57 ira=0x48 aborts=0 timeouts=0
+[TEST] S4-U02a PASS  ImuTask 100 +-5 cycles/s
+[TEST] S4-U02b INFO  longest IMU cycle = 445 us, read errors = 0
+[TEST] S4-U02b PASS  IMU cycle < 600 us
+[TEST] S4-U03 INFO  x=-39 y=60 z=880 mg
+[TEST] S4-U03 PASS  |a| = 1 g +-20 % at rest
+[TEST] S4-U04a PASS  sensor healthy, IMU_FAULT clear
+[TEST] S4-U04b PASS  pitch within +-10 deg on a level bench (else fix APP_CAL_IMU_AXIS_*/SIGN)
+[TEST] S4-U04c PASS  no episode, no max, STATIONARY at rest
+[TEST] S4-U05 INFO  tap the car once now (2 s window)
+[TEST] S4-U05 PASS  a tap at rest does not latch a stop
+[TEST] S4-U06 PASS  ImuState refreshed within 15 ms
+[TEST] subsystem4 SUMMARY 9 passed, 0 failed
+[TEST] S5-U01a PASS  slice 7B compare = ahead pulse
+[TEST] S5-U01b PASS  GP15 routed to PWM only when APP_CAL_SERVO_ARMED
+[TEST] S5-U01 INFO  servo pulse=1500 us routed=0 enabled=0
+[TEST] S5-U02a PASS  forced rise/fall -> ECHO_DONE
+[TEST] S5-U02b PASS  width 580 +-60 us (10 cm)
+[TEST] S5-U02c PASS  us -> 10 cm
+[TEST] S5-U02d PASS  ECHO_DONE set on FLG_SCAN
+[TEST] S5-U02 INFO  width=617 us
+[TEST] S5-U02e PASS  stray falling edge ignored
+[TEST] S5-U02f PASS  > 30 ms echo -> OVERRUN
+[TEST] S5-U03a PASS  one profile request -> exactly one DONE or FAIL
+[TEST] S5-U03b PASS  profile copy under MTX_OBSTACLE
+[TEST] S5-U03c PASS  scan_state reflects the hardware gates
+[TEST] S5-U03 INFO  scan 0 ms state=6 action=0 width=0 closest=511 ymin=0 ymax=0
+[TEST] S5-U03d PASS  scan time within T_SCAN_TIMEOUT (NFR14 T_profile)
+[TEST] S5-U04a PASS  10 +-2 watch rangings per second
+[TEST] S5-U04b PASS  WATCH_OFF stops ranging
+[TEST] S5-U05 PASS  TRIG low while APP_CAL_ECHO_SHIFTER_VERIFIED == 0
+[TEST] S5-U06 PASS  scan subsystem never latches a stop by itself
+[TEST] S5-U07 INFO  skipped: live ranging needs APP_CAL_ECHO_SHIFTER_VERIFIED = 1 (HV-5)
+[TEST] S5-U08 INFO  skipped: servo sweep needs APP_CAL_SERVO_ARMED = 1 (HV-7)
+[TEST] subsystem5 SUMMARY 16 passed, 0 failed
+[TEST] SH-U01 PASS  cyclic handler 100 +-5 per second
+[TEST] SH-U02 PASS  1 MHz timer advances >= 9 ms over a 10 ms delay
+[TEST] SH-U03a PASS  test flag created
+[TEST] SH-U03b PASS  dispatcher attach on spare pin
+[TEST] SH-U03c PASS  second attach to the same pin is refused
+[TEST] SH-U03d PASS  flag set from GPIO ISR received within 100 ms
+[TEST] SH-U04a PASS  no lost fault bit over 10000 ISR/task RMW
+[TEST] SH-U04b PASS  ISR ran once per iteration
+[TEST] SH-U04c INFO  longest helper window = 3 us; incl. test force/timer setup = 5 us
+[TEST] SH-U04c PASS  helper masked window <= 5 us (design: ~10 cycles, SRAM)
+[TEST] SH-U05a PASS  LineState -100/+100 round trip, upper bits clear
+[TEST] SH-U05b PASS  MotionStatus signed distance min + flags round trip
+[TEST] SH-U06 PASS  100 event posts without waiting (< 10 ms)
+[TEST] SH-U07 PASS  latch clear refused from a non-controller task
+[TEST] SH-U08a PASS  STOP_LATCH set by ISR request
+[TEST] SH-U08b PASS  first stop cause wins
+[TEST] SH-U08c PASS  controller in S7 within 50 ms of EVT_SAFE_STOP
+[TEST] shared SUMMARY 16 passed, 0 failed
+[TEST] === test run end ===

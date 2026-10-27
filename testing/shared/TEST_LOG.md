@@ -37,3 +37,4 @@ Add a new row for every run. Never edit or delete old rows.
 | A2 | 2026-10-22 | `07fb89b` + SRAM patch (= `0aafbaa`) | PASS 16/0 | not saved | Reported by Xavier; console not kept. |
 | B | 2026-10-22 | `bbcaa13` | PASS 16/0 | `../subsystem1/logs/2026-10-22_test_run1.txt` | SH-U04c helper window 2 us (set-up incl. 5 us). |
 | C | 2026-10-22 | `3f3cdd6` | PASS 16/0 | `../subsystem1/logs/2026-10-22_test_run2.txt` | SH-U04c helper window 1 us (set-up incl. 3 us). Boot banner `hw self-check: 0x7 (timer 1, pwm 1, io 1)`. |
+| D, D2 | 2026-10-27 | `57a1be1` tree (converged image, tester Wong Wei Qi) | PASS 16/0 (both runs) | `../system/logs/2026-10-27_test_image_full_run_converged.txt` | First run with all five subsystems' tasks live (motion, line, IMU, scan, barcode, telemetry) plus the dispatcher INTF fix: cyclic 100/s, SH-U04c helper window 3 us (set-up incl. 5 us, at the limit), 10000-iteration RMW with no lost bit, S7 within 50 ms. |
