@@ -122,6 +122,31 @@ span_ok (uint16_t lo, uint16_t hi)
            (((uint32_t) hi - (uint32_t) lo) >= APP_CAL_IR_MIN_CONTRAST);
 }
 
+/** Track the references and normalise both channels. D-32: with the span
+ *  collapsed, noise would normalise to full-scale swings and raise phantom
+ *  JUNCTION / FOUND events (seen on the bench 27 Oct); while uncalibrated
+ *  both channels read as light (error 0) so the controller runs the bounded
+ *  search instead of acting on noise. */
+static void
+normalise_pair (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
+                uint8_t * p_n_l, uint8_t * p_n_c)
+{
+    track(adc_left, &p_core->min_l, &p_core->max_l);
+    track(adc_centre, &p_core->min_c, &p_core->max_c);
+    p_core->calibrated = span_ok(p_core->min_l, p_core->max_l) &&
+                         span_ok(p_core->min_c, p_core->max_c);
+    if (p_core->calibrated)
+    {
+        *p_n_l = line_core_normalise(adc_left, p_core->min_l, p_core->max_l);
+        *p_n_c = line_core_normalise(adc_centre, p_core->min_c, p_core->max_c);
+    }
+    else
+    {
+        *p_n_l = 0U;
+        *p_n_c = 0U;
+    }
+}
+
 void
 line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
                 line_out_t * p_out)
@@ -137,13 +162,7 @@ line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
     adc_centre =
         (uint16_t) ((adc_centre > APP_ADC_MAX) ? APP_ADC_MAX : adc_centre);
 
-    track(adc_left, &p_core->min_l, &p_core->max_l);
-    track(adc_centre, &p_core->min_c, &p_core->max_c);
-    p_core->calibrated = span_ok(p_core->min_l, p_core->max_l) &&
-                         span_ok(p_core->min_c, p_core->max_c);
-
-    n_l    = line_core_normalise(adc_left, p_core->min_l, p_core->max_l);
-    n_c    = line_core_normalise(adc_centre, p_core->min_c, p_core->max_c);
+    normalise_pair(p_core, adc_left, adc_centre, &n_l, &n_c);
     dark_l = (n_l >= (uint8_t) APP_CAL_LINE_DARK_PCT);
     dark_c = (n_c >= (uint8_t) APP_CAL_LINE_DARK_PCT);
 

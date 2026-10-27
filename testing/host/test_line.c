@@ -80,6 +80,31 @@ test_line_basic (void)
     }
     CHECK("H-LN-07b", !out.contrast_ok,
           "flat signal for 12 s -> IR_CONTRAST lost");
+    /* D-32: while the contrast is insufficient, noise must not become a
+       line: error 0, steer 0, no dark, LOST reported once, no JUNCTION */
+    {
+        bool quiet = true;
+        bool lost  = false;
+        line_core_init(&core);
+        for (i = 0U; i < 1200U; i++)
+        {
+            line_core_step(&core, 2000U, 2000U, &out);
+            lost = lost || out.evt_lost;
+        }
+        for (i = 0U; i < 30U; i++)
+        {
+            line_core_step(&core, (0U == (i & 1U)) ? 1990U : 2010U,
+                           (0U == (i & 1U)) ? 2010U : 1990U, &out);
+            if ((0 != out.state.line_error) || (0 != out.state.steer) ||
+                out.evt_junction || out.evt_found || out.state.on_line)
+            {
+                quiet = false;
+            }
+        }
+        CHECK("H-LN-07c", quiet && lost && !out.contrast_ok,
+              "uncalibrated: noise gives error 0, no junction, off line, LOST "
+              "was reported");
+    }
     line_core_step(&core, WHITE, WHITE, &out);
     line_core_step(&core, BLACK, BLACK, &out);
     CHECK("H-LN-08", out.contrast_ok,

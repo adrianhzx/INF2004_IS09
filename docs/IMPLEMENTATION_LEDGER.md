@@ -636,3 +636,15 @@ INT-11/INT-12 on the floor; commit console logs. Chat: PHASE 8 (Week 13
 evidence: packed sizes vs estimate, CPU idle / stack via `tk_ref_tsk`,
 bench logs, traceability final pass) on `CONTINUE`.
 
+### Addendum 27 Oct evening: D-32 from the first Phase 7 image on the car
+
+The user's demo-image run (`54c3299`, motion disarmed) was clean on the
+controller side (S1, braked, no stop, telemetry at rate, `dropped 0`) but
+showed `IR_CONTRAST` with `line_error` noise of +-100 and a phantom
+JUNCTION on a stationary car. `line_core.c` now reports "no line" while
+uncalibrated (D-32, H-LN-07c; host line suite 115/115; demo image
+rebuilt, 0 warnings). Without this an armed car could have started a nav
+step from noise. Buddy 3 to ratify. Bench note: after power-up the IR
+sensors must see both shades once; the S5 sweep achieves that if the car
+starts off the line.
+
