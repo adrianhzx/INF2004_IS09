@@ -1,0 +1,107 @@
+EVT CONN_STATE from COMMS payload=0x0002 t=21 ms(mod 256)
+EVT DROPPED from COMMS payload=0x0000 t=21 ms(mod 256)
+SNAP seq=0 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=13613/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+HB seq=0 uptime=4 s ONLINE backoff=0 dropped=0
+EVT MOTION_CLASS from IMU payload=0x0004 t=110 ms(mod 256)
+SNAP seq=1 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=14619/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=DESCENDING range=no-echo/>=511 action=STOP
+EVT HUMP_END from IMU payload=0x0100 t=144 ms(mod 256)
+SNAP seq=2 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=15644/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+EVT MOTION_CLASS from IMU payload=0x0006 t=164 ms(mod 256)
+SNAP seq=3 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=16512/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=4 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=17533/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=5 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=18563/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CRUISING range=no-echo/>=511 action=STOP
+HB seq=1 uptime=5 s ONLINE backoff=0 dropped=0
+EVT HUMP_START from IMU payload=0x0002 t=16 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0003 t=37 ms(mod 256)
+SNAP seq=6 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=19439/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=7 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=20464/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=8 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=21492/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=9 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=22370/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+EVT MOTION_CLASS from IMU payload=0x0004 t=38 ms(mod 256)
+EVT HUMP_END from IMU payload=0x0200 t=148 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0006 t=168 ms(mod 256)
+SNAP seq=10 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=23394/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+HB seq=2 uptime=6 s ONLINE backoff=0 dropped=0
+EVT HUMP_START from IMU payload=0x0003 t=93 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0003 t=112 ms(mod 256)
+SNAP seq=11 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=24420/0 dist=32767 mm line_err=-100 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=12 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=25290/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=13 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=26308/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=14 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=27317/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+EVT MOTION_CLASS from IMU payload=0x0004 t=164 ms(mod 256)
+SNAP seq=15 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=28194/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=DESCENDING range=no-echo/>=511 action=STOP
+HB seq=3 uptime=7 s ONLINE backoff=0 dropped=0
+SNAP seq=16 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=29220/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=DESCENDING range=no-echo/>=511 action=STOP
+EVT HUMP_END from IMU payload=0x0300 t=228 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0006 t=248 ms(mod 256)
+SNAP seq=17 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=30240/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=18 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=31119/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=19 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=32140/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=20 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=33162/0 dist=32767 mm line_err=-100 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+HB seq=4 uptime=8 s ONLINE backoff=0 dropped=0
+SNAP seq=21 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=34036/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=22 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=35055/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=23 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=36076/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=24 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=36954/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=25 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=37978/0 dist=32767 mm line_err=-100 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+HB seq=5 uptime=9 s ONLINE backoff=0 dropped=0
+EVT HUMP_START from IMU payload=0x0004 t=40 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0003 t=60 ms(mod 256)
+SNAP seq=26 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=39006/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=27 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=39883/0 dist=32767 mm line_err=-100 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+EVT MOTION_CLASS from IMU payload=0x0004 t=144 ms(mod 256)
+SNAP seq=28 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=40908/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=DESCENDING range=no-echo/>=511 action=STOP
+SNAP seq=29 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=41932/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=DESCENDING range=no-echo/>=511 action=STOP
+EVT HUMP_END from IMU payload=0x0400 t=208 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0006 t=229 ms(mod 256)
+SNAP seq=30 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=42810/0 dist=32767 mm line_err=-98 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+HB seq=6 uptime=10 s ONLINE backoff=0 dropped=0
+SNAP seq=31 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=43811/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=32 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=44821/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+SNAP seq=33 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=45690/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+EVT HUMP_START from IMU payload=0x0005 t=74 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0003 t=94 ms(mod 256)
+SNAP seq=34 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=46703/0 dist=32767 mm line_err=-100 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+EVT MOTION_CLASS from IMU payload=0x0004 t=18 ms(mod 256)
+SNAP seq=35 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=47730/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=DESCENDING range=no-echo/>=511 action=STOP
+HB seq=7 uptime=11 s ONLINE backoff=0 dropped=0
+EVT HUMP_END from IMU payload=0x0500 t=189 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0006 t=208 ms(mod 256)
+SNAP seq=36 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=48600/0 dist=32767 mm line_err=-97 on_line=1 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+EVT HUMP_START from IMU payload=0x0006 t=172 ms(mod 256)
+EVT MOTION_CLASS from IMU payload=0x0003 t=193 ms(mod 256)
+SNAP seq=37 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=49624/0 dist=32767 mm line_err=-99 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=38 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=50642/0 dist=32767 mm line_err=-96 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=39 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[] speed=127/0 cm/s enc=51509/0 dist=32767 mm line_err=-95 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+SNAP seq=40 S2_LINE_FOLLOWING FOLLOWING cause=NONE faults=[IR_CONTRAST] speed=127/0 cm/s enc=52504/0 dist=32767 mm line_err=0 on_line=1 barcode=NONE hump_max=0 mm hump_active=1 class=CLIMBING range=no-echo/>=511 action=STOP
+HB seq=8 uptime=12 s ONLINE backoff=0 dropped=0
+EVT FAULT_SET from SHARED payload=0x0040 t=73 ms(mod 256)
+EVT SYS_STATE from CONTROLLER payload=0x0005 t=163 ms(mod 256)
+EVT SEARCH from CONTROLLER payload=0x0000 t=163 ms(mod 256)
+EVT LINE_EVENT from LINE payload=0x0002 t=163 ms(mod 256)
+EVT MOTION_DONE from MOTION payload=0x0200 t=173 ms(mod 256)
+EVT MOTION_DONE from MOTION payload=0x0603 t=253 ms(mod 256)
+EVT SAFE_STOP from SHARED payload=0x0009 t=253 ms(mod 256)
+EVT SEARCH from CONTROLLER payload=0x0302 t=253 ms(mod 256)
+EVT SYS_STATE from CONTROLLER payload=0x0007 t=253 ms(mod 256)
+SNAP seq=42 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=127/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=CRUISING range=no-echo/>=511 action=STOP
+EVT MOTION_CLASS from IMU payload=0x0000 t=72 ms(mod 256)
+SNAP seq=43 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=44 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=45 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+HB seq=9 uptime=13 s ONLINE backoff=0 dropped=0
+SNAP seq=46 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=47 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=48 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=49 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=50 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+HB seq=10 uptime=14 s ONLINE backoff=0 dropped=0
+SNAP seq=51 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=52 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=53 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=54 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=55 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+HB seq=11 uptime=15 s ONLINE backoff=0 dropped=0
+SNAP seq=56 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=57 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP
+SNAP seq=58 S7_SAFE_STOP STOP_LATCHED cause=LINE_SEARCH_TIMEOUT faults=[IR_CONTRAST] speed=0/0 cm/s enc=52674/0 dist=32767 mm line_err=0 on_line=0 barcode=NONE hump_max=0 mm hump_active=0 class=STATIONARY range=no-echo/>=511 action=STOP

@@ -74,7 +74,7 @@
     15000U /* pending command expires if no junction [TBC] */
 
 /* ---- Speeds and geometry ----------------------------------------------- */
-#define APP_CAL_V_NOM_CM_S 20U /* nominal line-following speed [TBC, HV-3] */
+#define APP_CAL_V_NOM_CM_S 15U /* nominal line-following speed [TBC, HV-3] */
 #define APP_CAL_V_REVERSE_CM_S 12U  /* [TBC] */
 #define APP_CAL_V_SEARCH_CM_S 10U   /* [TBC] */
 #define APP_CAL_V_TURN_CM_S 15U     /* [TBC] */
@@ -91,7 +91,7 @@
 
 /* ---- Motion control (Buddy 2). All gains Q8 fixed point (256 = 1.0). --- */
 #define APP_CAL_PWM_MAX_PCT                                                    \
-    80U /* |PWM| ceiling until HV-4 current check [TBC] */
+    50U /* |PWM| ceiling until HV-3/HV-4 are signed [TBC]; 80 was too fast */
 #define APP_CAL_PWM_MIN_PCT                                                    \
     18U /* below this the motor does not turn [TBC, HV-4] */
 #define APP_CAL_PWM_STALL_PCT                                                  \

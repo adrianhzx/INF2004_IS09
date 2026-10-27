@@ -123,7 +123,8 @@ reset_command (motion_core_t * p_core)
     p_core->i_l_q8            = 0;
     p_core->i_r_q8            = 0;
     p_core->cmd_cycles        = 0U;
-    p_core->stall_cycles      = 0U;
+    p_core->stall_cycles_l    = 0U;
+    p_core->stall_cycles_r    = 0U;
     p_core->line_stale_cycles = 0U;
 }
 
@@ -330,7 +331,8 @@ guard_step (motion_core_t * p_core, motion_in_t const * p_in,
 
     if (!is_driving(p_core))
     {
-        p_core->stall_cycles = 0U;
+        p_core->stall_cycles_l = 0U;
+        p_core->stall_cycles_r = 0U;
         return;
     }
     {
@@ -357,18 +359,32 @@ guard_step (motion_core_t * p_core, motion_in_t const * p_in,
         }
         else
         {
-            /* stall: demand above the watch level and no edge on either wheel
-             */
-            if ((p_core->last_pwm_mag >= (uint8_t) APP_CAL_PWM_STALL_PCT) &&
-                (0 == dl) && (0 == dr))
+            /* stall, per wheel (D-33): demand above the watch level on that
+               wheel and no edge from it. A single dead encoder or blocked
+               wheel is a stall; the other wheel's edges do not excuse it
+               (27 Oct: right encoder silent, car drove in a circle). */
+            if ((p_core->last_pwm_mag_l >= (uint8_t) APP_CAL_PWM_STALL_PCT) &&
+                (0 == dl))
             {
-                p_core->stall_cycles++;
+                p_core->stall_cycles_l++;
             }
             else
             {
-                p_core->stall_cycles = 0U;
+                p_core->stall_cycles_l = 0U;
             }
-            if (p_core->stall_cycles >= MC_MS_TO_CYCLES(APP_CAL_ENC_STALL_MS))
+            if ((p_core->last_pwm_mag_r >= (uint8_t) APP_CAL_PWM_STALL_PCT) &&
+                (0 == dr))
+            {
+                p_core->stall_cycles_r++;
+            }
+            else
+            {
+                p_core->stall_cycles_r = 0U;
+            }
+            if ((p_core->stall_cycles_l >=
+                 MC_MS_TO_CYCLES(APP_CAL_ENC_STALL_MS)) ||
+                (p_core->stall_cycles_r >=
+                 MC_MS_TO_CYCLES(APP_CAL_ENC_STALL_MS)))
             {
                 p_out->fault_set |= APP_FAULT_MOTOR_STALL;
                 p_out->stop_request = APP_STOP_CAUSE_STALL;
@@ -548,13 +564,10 @@ status_step (motion_core_t * p_core, int32_t pwm_l, int32_t pwm_r,
         pwm_l = 0;
         pwm_r = 0;
     }
-    p_out->pwm_l_pct = limit_pwm(pwm_l);
-    p_out->pwm_r_pct = limit_pwm(pwm_r);
-    {
-        int32_t const ml     = abs_i32((int32_t) p_out->pwm_l_pct);
-        int32_t const mr     = abs_i32((int32_t) p_out->pwm_r_pct);
-        p_core->last_pwm_mag = (uint8_t) ((ml > mr) ? ml : mr); /* <= 100 */
-    }
+    p_out->pwm_l_pct       = limit_pwm(pwm_l);
+    p_out->pwm_r_pct       = limit_pwm(pwm_r);
+    p_core->last_pwm_mag_l = (uint8_t) abs_i32((int32_t) p_out->pwm_l_pct);
+    p_core->last_pwm_mag_r = (uint8_t) abs_i32((int32_t) p_out->pwm_r_pct);
     p_core->cycle_tag =
         (uint8_t) ((p_core->cycle_tag + 1U) & app_pack_mask(APP_MSA_TAG_BITS));
     {

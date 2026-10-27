@@ -80,9 +80,11 @@ typedef struct
     /* control */
     int32_t  i_l_q8; /* integral terms */
     int32_t  i_r_q8;
-    uint32_t cmd_cycles; /* cycles in the current command */
-    uint32_t stall_cycles;
-    uint8_t  last_pwm_mag; /* larger |PWM| applied last cycle (stall watch) */
+    uint32_t cmd_cycles;     /* cycles in the current command */
+    uint32_t stall_cycles_l; /* per wheel (D-33): one dead encoder is a stall */
+    uint32_t stall_cycles_r;
+    uint8_t  last_pwm_mag_l; /* |PWM| applied last cycle (stall watch) */
+    uint8_t  last_pwm_mag_r;
     uint8_t  last_line_seq;
     uint16_t line_stale_cycles;
     uint8_t  last_heartbeat;

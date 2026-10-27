@@ -648,3 +648,17 @@ step from noise. Buddy 3 to ratify. Bench note: after power-up the IR
 sensors must see both shades once; the S5 sweep achieves that if the car
 starts off the line.
 
+### Addendum 27 Oct evening: first armed run (D-33)
+
+The user armed motion with the provisional geometry (ticks/rev 20, track
+width unmeasured) and ran the car: right encoder silent the whole run,
+left encoder ~5100 edges/s, speed and distance saturated, car fast and
+circling left, line search cascaded in 80 ms, LINE_SEARCH_TIMEOUT. Two
+outcomes: (1) a safety fix, the stall guard is now per wheel (D-33,
+H-MO-48; before, one dead encoder went undetected while the other wheel
+was driven at the ceiling); (2) HV-3 is now blocking: right encoder wiring
+and the real count per revolution. `V_NOM` 15 cm/s and `PWM_MAX_PCT` 50
+until HV-3/HV-4 are signed. Host 831/831, gate PASS, 4 profiles 0
+warnings. Controller behaviour in the run (S2 -> LOST -> S5 -> S7 with the
+right cause) matched the host model.
+

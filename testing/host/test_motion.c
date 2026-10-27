@@ -48,7 +48,8 @@ typedef struct
     uint16_t ticks_r;
     uint16_t interval_l;
     uint16_t interval_r;
-    bool     stalled; /* wheels blocked */
+    bool     stalled;   /* wheels blocked */
+    bool     stalled_r; /* right wheel only (dead encoder / blocked) */
 } sim_car_t;
 
 #define SIM_GAIN_CM_S_PER_PCT_Q8                                               \
@@ -106,7 +107,7 @@ sim_step (sim_car_t * p_car, motion_out_t const * p_out)
               p_car->stalled);
     sim_wheel(p_out->pwm_r_pct, &p_car->vel_r_cm_s_q8, &p_car->pos_r_um,
               &p_car->emitted_r, &p_car->ticks_r, &p_car->interval_r,
-              p_car->stalled);
+              p_car->stalled || p_car->stalled_r);
 }
 
 static void
@@ -543,6 +544,26 @@ test_follow_and_guards (void)
               "blocked wheels -> STALL stop after ~300 ms");
         CHECK("H-MO-39", (0U == out.status.speed_l_cm_s),
               "speed reports 0 with no edges");
+    }
+
+    /* D-33: only the right wheel silent (dead encoder or blocked) while the
+       left keeps feeding edges -> still a STALL stop */
+    motion_core_init(&core);
+    sim_init(&car, 0U);
+    car.stalled_r = true;
+    fill_in(&in, &car, 0U, make_line(0, true, 1U));
+    in.has_cmd    = true;
+    in.cmd_record = make_cmd(APP_MC_MOVE, 20U, 2000, false, 15U);
+    motion_core_step(&core, &in, &out);
+    sim_step(&car, &out);
+    {
+        uint32_t const n =
+            run_until_done(&core, &car, &out, 200U, 0, true, false, false);
+        CHECK("H-MO-48",
+              (APP_STOP_CAUSE_STALL == out.stop_request) &&
+                  (0U != (out.fault_set & APP_FAULT_MOTOR_STALL)) &&
+                  (n >= 28U) && (n <= 40U) && (0 == out.pwm_l_pct),
+              "one silent wheel -> STALL stop after ~300 ms, both braked");
     }
 
     /* stale line in BRAKED must NOT stop (no line needed) */

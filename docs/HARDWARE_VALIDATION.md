@@ -45,3 +45,14 @@ revolution by hand, read the tick delta and the glitch counter, then set
 `APP_CAL_TICKS_PER_REV` (and check `APP_CAL_ENC_GLITCH_MAX`) before HV-4.
 Until then the published speed and distance are not in physical units.
 
+## First armed run (27 Oct 2026 evening) - what HV-3 must now settle
+
+`testing/system/logs/2026-10-27_first_armed_run_decoded.txt`: right encoder
+0 throughout (check GP2/GP3 wiring, the sensor supply and that the right
+disc/magnet turns with the wheel); left encoder ~5100 edges/s, i.e. the
+count per wheel revolution is in the thousands, not 20. Procedure before
+the next armed run: TEST image with `S2_T_LIVE_LOOP 1`, turn each wheel one
+revolution by hand, both counts must move and match; set
+`APP_CAL_TICKS_PER_REV`, measure `APP_CAL_TRACK_WIDTH_MM`, keep
+`APP_CAL_PWM_MAX_PCT 50` until the car behaves at V_NOM.
+
