@@ -61,8 +61,8 @@
     4000U /* profile scan must finish within [TBC] */
 #define APP_CAL_T_LINE_SEARCH_MS 3000U /* bounded S5 search [TBC] */
 #define APP_CAL_T_MOTION_TIMEOUT_MS                                            \
-    8000U                       /* any MOVE/TURN must complete within [TBC] */
-#define APP_CAL_T_ABORT_MS 300U /* hump false trigger [TBC] */
+    8000U /* any MOVE/TURN must complete within [TBC]; FOLLOW is open-ended */
+#define APP_CAL_T_ABORT_MS 300U     /* hump false trigger [TBC] */
 #define APP_CAL_T_HUMP_MAX_MS 6000U /* episode time bound [TBC] */
 #define APP_CAL_T_THETA_CONFIRM_MS                                             \
     50U /* pitch above theta_ON for 50 ms (Rev B) */
@@ -141,8 +141,33 @@
 #define APP_CAL_R_SWEPT_CM 12U     /* [TBC] */
 #define APP_CAL_D_REVERSE_MM 150U  /* [TBC] */
 #define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
-#define APP_CAL_SERVO_MIN_US 1000U /* 0 deg pulse [TBC, HV-7] */
-#define APP_CAL_SERVO_MAX_US 2000U /* 180 deg pulse [TBC, HV-7] */
+/* ---- Mission controller (Phase 7, VehicleControllerTask) --------------- */
+#define APP_CAL_D_JUNC_CLEAR_MM                                                \
+    80U /* STRAIGHT or no command: MOVE this far across a junction [TBC] */
+#define APP_CAL_D_JUNC_ADVANCE_MM                                              \
+    30U /* sensor-to-axle offset driven before a junction pivot; 0 = none      \
+           [TBC] */
+#define APP_CAL_T_SPEED_ZERO_MS                                                \
+    1000U /* BRAKE must report speed 0 within this [TBC] */
+#define APP_CAL_T_SCAN_WAIT_MARGIN_MS                                          \
+    500U /* added to T_SCAN_TIMEOUT before the controller gives up */
+#define APP_CAL_N_RETRY_MAX 2U /* reverse-and-rescan attempts, 0..3 (Rev B) */
+#define APP_CAL_D_REVERSE_MARGIN_MM                                            \
+    50U /* corridor behind the car must be known clear for D_REVERSE + this */
+#define APP_CAL_SIDE_FREE_COUNT                                                \
+    3U /* consecutive side readings above R_SIDE_FREE = obstacle passed */
+#define APP_CAL_D_PASS_MIN_MM                                                  \
+    100U /* action 4: never declare the obstacle passed before this */
+#define APP_CAL_D_PASS_EXTRA_MM                                                \
+    200U /* action 4: car length plus margin driven after the side is free */
+#define APP_CAL_D_RETURN_MARGIN_MM                                             \
+    150U /* action 5: MOVE until_line bound = offset + this [TBC] */
+#define APP_CAL_T_BYPASS_MAX_MS 30000U /* whole S4 bound [TBC] */
+#define APP_CAL_SEARCH_ANGLE_DDEG                                              \
+    600 /* S5 first sweep, 0.1 deg units (60 deg); second sweep is twice */
+#define APP_CAL_D_SEARCH_CREEP_MM 150U /* S5 forward creep [TBC] */
+#define APP_CAL_SERVO_MIN_US 1000U     /* 0 deg pulse [TBC, HV-7] */
+#define APP_CAL_SERVO_MAX_US 2000U     /* 180 deg pulse [TBC, HV-7] */
 #define APP_CAL_SERVO_LEFT_IS_MAX_PULSE                                        \
     1 /* 1: longer pulse turns the sensor LEFT [TBC, HV-7] */
 #define APP_CAL_T_SERVO_MIN_SETTLE_MS 20U /* floor for a 5 deg step */

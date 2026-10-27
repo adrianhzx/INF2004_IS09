@@ -618,6 +618,65 @@ test_follow_and_guards (void)
     }
 }
 
+/* D-31 (Phase 7): FOLLOW has no lifetime timeout; MOVE honours until_line. */
+static void
+test_d31 (void)
+{
+    motion_core_t core;
+    motion_in_t   in;
+    motion_out_t  out;
+    sim_car_t     car;
+    uint32_t      n = 0U;
+
+    /* FOLLOW keeps following well past T_MOTION_TIMEOUT (8 s = 800 cycles) */
+    motion_core_init(&core);
+    sim_init(&car, 0U);
+    fill_in(&in, &car, 0U, make_line(0, true, 1U));
+    in.has_cmd    = true;
+    in.cmd_record = make_cmd(APP_MC_FOLLOW, 20U, 0, false, 1U);
+    motion_core_step(&core, &in, &out);
+    sim_step(&car, &out);
+    n = run_until_done(&core, &car, &out, 1000U, 0, true, false, false);
+    CHECK("H-MO-44",
+          (1000U == n) && (APP_MOTION_FOLLOWING == out.status.motion_state) &&
+              !out.done_event,
+          "FOLLOW still active after 10 s: no lifetime timeout");
+
+    /* MOVE until_line: off the line it drives; finishes OK as soon as the
+       line is seen, with the distance as the bound */
+    motion_core_init(&core);
+    sim_init(&car, 0U);
+    fill_in(&in, &car, 0U, make_line(0, false, 1U));
+    in.has_cmd    = true;
+    in.cmd_record = make_cmd(APP_MC_MOVE, 10U, 1000, true, 2U);
+    motion_core_step(&core, &in, &out);
+    sim_step(&car, &out);
+    n = run_until_done(&core, &car, &out, 50U, 0, false, false, false);
+    CHECK("H-MO-45",
+          (50U == n) && (APP_MOTION_MOVING == out.status.motion_state),
+          "MOVE until_line keeps moving while off the line");
+    n = run_until_done(&core, &car, &out, 50U, 0, true, false, false);
+    CHECK("H-MO-46",
+          (n <= 2U) && out.done_event &&
+              (APP_MOTION_RESULT_OK == out.status.done_result) &&
+              (2U == out.status.done_seq),
+          "MOVE until_line finishes OK when the line appears");
+
+    /* MOVE until_line that never sees the line ends TIMEOUT at the bound */
+    motion_core_init(&core);
+    sim_init(&car, 0U);
+    fill_in(&in, &car, 0U, make_line(0, false, 1U));
+    in.has_cmd    = true;
+    in.cmd_record = make_cmd(APP_MC_MOVE, 20U, 100, true, 3U);
+    motion_core_step(&core, &in, &out);
+    sim_step(&car, &out);
+    n = run_until_done(&core, &car, &out, 400U, 0, false, false, false);
+    CHECK("H-MO-47",
+          (n < 400U) && out.done_event &&
+              (APP_MOTION_RESULT_TIMEOUT == out.status.done_result),
+          "MOVE until_line without a line ends TIMEOUT at the distance bound");
+}
+
 int
 main (void)
 {
@@ -627,6 +686,7 @@ main (void)
     test_move_distance();
     test_turns();
     test_follow_and_guards();
+    test_d31();
     printf("motion host tests: %d passed, %d failed\n", g_pass, g_fail);
     return (0 == g_fail) ? 0 : 1;
 }

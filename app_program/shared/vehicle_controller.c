@@ -1,34 +1,34 @@
 /** @file vehicle_controller.c
- *  @brief VehicleControllerTask implementation (Phase 1 scope, see header).
+ *  @brief VehicleControllerTask: kernel shell around mission_core (see
+ *         header). Owns the button IRQs, the controller heartbeat and the
+ *         only writer of g_mission_status.
  */
-
 #include "vehicle_controller.h"
 
+#include "../subsystem5/subsystem5.h"
+#include "app_barcode.h"
 #include "app_cal.h"
 #include "app_gpio_irq.h"
 #include "app_hw.h"
 #include "app_ipc.h"
+#include "app_line.h"
+#include "app_obstacle.h"
 #include "app_port.h"
 #include "app_safety.h"
 #include "app_telemetry.h"
+#include "mission_core.h"
 
-#define VC_TICK_MS 20U
-#define VC_MS_TO_TICKS(ms) (((ms) + VC_TICK_MS - 1U) / VC_TICK_MS)
+#define VC_REJECT_SEQ_SHIFT 8U
 
 volatile uint8_t g_ctrl_heartbeat = 0U;
 
 static int32_t  g_vc_tid       = 0;
 static uint32_t g_vc_boot_ok   = 0U;
 static bool     g_vc_boot_done = false;
+static uint32_t g_vc_steps     = 0U;
 
-/* Controller-private mission data (single writer of g_mission_status). */
-static app_mission_status_t g_vc_ms;
-static uint8_t              g_vc_motion_seq = 0U;
-
-/* Button debounce state (sampled every tick, ISR only wakes us). */
-static uint32_t g_vc_start_held_ticks = 0U;
-static bool     g_vc_start_armed_edge = false; /* one START per press */
-static uint32_t g_vc_s7_hold_ticks    = 0U;
+static mission_core_t g_vc_core; /* controller-private, single writer */
+static uint8_t        g_vc_remote_gen_seen = 0U;
 
 static bool
 button_pressed (uint32_t pin)
@@ -39,25 +39,6 @@ button_pressed (uint32_t pin)
 #else
     return level;
 #endif
-}
-
-static void
-publish_mission (void)
-{
-    g_vc_ms.seq      = (uint8_t) ((g_vc_ms.seq + 1U) & 0x0FU);
-    g_mission_status = app_mission_pack(&g_vc_ms); /* one aligned store */
-}
-
-static void
-set_state (app_sys_state_t new_state)
-{
-    if (g_vc_ms.sys_state != (uint8_t) new_state)
-    {
-        g_vc_ms.sys_state = (uint8_t) new_state;
-        publish_mission();
-        app_ipc_telem_post(APP_TEV_SYS_STATE, APP_SRC_CONTROLLER,
-                           (uint16_t) new_state);
-    }
 }
 
 /* ---- ISRs (task-independent, bounded) ---------------------------------- */
@@ -87,186 +68,88 @@ button_isr (uint32_t pin, uint32_t events, uint32_t stamp_us)
     }
 }
 
-/* ---- recovery guard ----------------------------------------------------- */
-
-static bool
-initiating_condition_cleared (app_stop_cause_t cause)
-{
-    uint16_t const faults = app_fault_get();
-    switch (cause)
-    {
-        case APP_STOP_CAUSE_OPERATOR_STOP:
-            return !button_pressed(APP_PIN_STOP_BTN);
-        case APP_STOP_CAUSE_COLLISION:
-            return 0U == (faults & APP_FAULT_IMU_FAULT);
-        case APP_STOP_CAUSE_STALL:
-            return 0U ==
-                   (faults & (APP_FAULT_MOTOR_STALL | APP_FAULT_ENCODER_FAULT));
-        case APP_STOP_CAUSE_STALE_LINE:
-            return 0U == (faults & APP_FAULT_STALE_LINE);
-        case APP_STOP_CAUSE_STALE_MOTION:
-            return 0U == (faults & APP_FAULT_STALE_MOTION);
-        case APP_STOP_CAUSE_CTRL_HEARTBEAT:
-            return 0U == (faults & APP_FAULT_CTRL_HEARTBEAT);
-        case APP_STOP_CAUSE_SCAN_TIMEOUT:
-            return 0U == (faults & APP_FAULT_SCAN_TIMEOUT);
-        case APP_STOP_CAUSE_NO_CLEARANCE: /* operator must move the car */
-        case APP_STOP_CAUSE_LINE_SEARCH_TIMEOUT:
-            return true;
-        case APP_STOP_CAUSE_CRITICAL_RUNTIME: /* needs a reboot */
-        case APP_STOP_CAUSE_REMOTE_STOP:
-        case APP_STOP_CAUSE_NONE:
-        case APP_STOP_CAUSE_COUNT:
-        default:
-            return false;
-    }
-}
+/* ---- input gathering ----------------------------------------------------- */
 
 static void
-s7_tick (void)
+gather (uint32_t events, mission_in_t * p_in)
 {
-    app_motion_status_t motion;
-    bool const          coherent   = app_motion_read(&motion);
-    bool const          speed_zero = coherent && (0U == motion.speed_l_cm_s) &&
-                            (0U == motion.speed_r_cm_s) &&
-                            ((APP_MOTION_STOP_LATCHED == motion.motion_state) ||
-                             (APP_MOTION_BRAKED == motion.motion_state));
+    uint32_t w0 = 0U;
+    uint32_t w1 = 0U;
 
-    if (button_pressed(APP_PIN_START_BTN))
+    p_in->events        = events;
+    p_in->boot_done     = g_vc_boot_done;
+    p_in->motion_armed  = (0 != APP_CAL_MOTION_ARMED);
+    p_in->stop_latched  = app_stop_latched();
+    p_in->stop_cause    = (uint8_t) app_stop_cause_get();
+    p_in->faults        = app_fault_get();
+    p_in->start_pressed = button_pressed(APP_PIN_START_BTN);
+    p_in->stop_pressed  = button_pressed(APP_PIN_STOP_BTN);
+    p_in->remote_start  = false;
+    p_in->remote_stop   = false;
+    if (0U != (events & APP_EVT_REMOTE_CMD))
     {
-        g_vc_s7_hold_ticks++;
-    }
-    else
-    {
-        g_vc_s7_hold_ticks = 0U;
-    }
-
-    if (speed_zero && initiating_condition_cleared(app_stop_cause_get()) &&
-        (g_vc_s7_hold_ticks >= VC_MS_TO_TICKS(APP_CAL_T_HOLD_MS)))
-    {
-        if (app_safety_controller_clear())
+        uint8_t const          gen  = g_remote_cmd_gen;
+        uint8_t const          byte = g_remote_cmd; /* one byte load */
+        app_remote_cmd_t const cmd  = app_remote_cmd_type(byte);
+        if (gen != g_vc_remote_gen_seen)
         {
-            g_vc_s7_hold_ticks    = 0U;
-            g_vc_start_armed_edge = false; /* the held START is consumed */
-            g_vc_ms.pending_cmd   = APP_NAV_NONE;
-            g_vc_ms.retry_count   = 0U;
-            set_state(APP_SYS_S0_BOOT_BRAKED);
+            g_vc_remote_gen_seen = gen;
+            p_in->remote_start   = (APP_REMOTE_CMD_START == cmd);
+            p_in->remote_stop    = (APP_REMOTE_CMD_STOP == cmd);
         }
     }
+    p_in->motion_valid = app_motion_read(&p_in->motion);
+    app_line_read(&p_in->line);
+    p_in->barcode_byte  = g_barcode_byte;
+    p_in->profile_valid = s5_profile_copy(&p_in->profile, &w0, &w1);
 }
 
-/* ---- START handling ------------------------------------------------------ */
+/* ---- output dispatch ----------------------------------------------------- */
 
 static void
-try_start_run (void)
+act (mission_out_t const * p_out)
 {
-#if APP_CAL_MOTION_ARMED
-    if (vehicle_controller_send_motion(APP_MC_FOLLOW, APP_CAL_V_NOM_CM_S, 0,
-                                       false) >= 0)
-    {
-        set_state(APP_SYS_S2_LINE_FOLLOWING); /* Phase 7 fills S2 behaviour */
-    }
-#else
-    /* Fail closed: motion calibration not signed off (app_cal.h, HV-3/HV-4). */
-    app_ipc_telem_post(APP_TEV_CMD_REJECTED, APP_SRC_CONTROLLER, 0x0001U);
-#endif
-}
+    uint32_t i = 0U;
 
-static void
-tick (void)
-{
-    g_ctrl_heartbeat++;
-
-    /* Belt and braces: the latch can only be set by app_safe_stop_request,
-       which also raises EVT_SAFE_STOP, but never let S7 be missed. */
-    if (app_stop_latched() &&
-        (APP_SYS_S7_SAFE_STOP != (app_sys_state_t) g_vc_ms.sys_state))
+    if ((uint8_t) APP_STOP_CAUSE_NONE != p_out->stop_request)
     {
-        g_vc_s7_hold_ticks = 0U;
-        set_state(APP_SYS_S7_SAFE_STOP);
+        app_safe_stop_request((app_stop_cause_t) p_out->stop_request);
     }
-
-    /* START debounce: pressed for >= T_START_DEBOUNCE, acted on once per press.
-     */
-    if (button_pressed(APP_PIN_START_BTN))
+    if (p_out->send_motion)
     {
-        if (g_vc_start_held_ticks < 0xFFFFU)
-        {
-            g_vc_start_held_ticks++;
-        }
+        (void) vehicle_controller_send_motion(
+            (app_motion_cmd_type_t) p_out->mc_type, p_out->mc_speed_cm_s,
+            p_out->mc_param, p_out->mc_until_line, p_out->mc_seq);
     }
-    else
+    if ((0U != p_out->scan_req) && (0 != app_ipc_flg_scan()))
     {
-        g_vc_start_held_ticks = 0U;
-        g_vc_start_armed_edge = true;
+        (void) tk_set_flg((ID) app_ipc_flg_scan(), (UINT) p_out->scan_req);
     }
-
-    switch ((app_sys_state_t) g_vc_ms.sys_state)
+    if (p_out->clear_latch)
     {
-        case APP_SYS_S0_BOOT_BRAKED:
-            if (g_vc_boot_done && !app_stop_latched())
-            {
-                app_motion_status_t motion;
-                (void) app_motion_read(&motion);
-                if (APP_MOTION_BRAKED == motion.motion_state)
-                {
-                    set_state(APP_SYS_S1_IDLE);
-                }
-            }
-            break;
-        case APP_SYS_S1_IDLE:
-            if (g_vc_start_armed_edge &&
-                (g_vc_start_held_ticks >=
-                 VC_MS_TO_TICKS(APP_CAL_T_START_DEBOUNCE_MS)))
-            {
-                g_vc_start_armed_edge = false;
-                try_start_run();
-            }
-            break;
-        case APP_SYS_S7_SAFE_STOP:
-            s7_tick();
-            break;
-        case APP_SYS_S2_LINE_FOLLOWING:
-        case APP_SYS_S3_EXECUTE_NAV:
-        case APP_SYS_S4_OBSTACLE_BYPASS:
-        case APP_SYS_S5_LINE_SEARCH:
-        case APP_SYS_S6_RUN_COMPLETE:
-        default:
-            /* NOT IMPLEMENTED (Phase 7). Unreachable while APP_CAL_MOTION_ARMED
-               is 0: try_start_run() never leaves S1. */
-            break;
+        (void) app_safety_controller_clear(); /* refused unless we are the
+                                                 bound controller: then the
+                                                 latch stays and the next
+                                                 step re-enters S7 */
     }
-}
-
-static void
-remote_cmd (void)
-{
-    uint8_t const          byte = g_remote_cmd; /* one byte load */
-    app_remote_cmd_t const cmd  = app_remote_cmd_type(byte);
-
-    if (APP_REMOTE_CMD_STOP == cmd)
+    if (p_out->mission_changed)
     {
-        /* D-01 default: validated remote STOP on the controller event path. */
-        app_safe_stop_request(APP_STOP_CAUSE_OPERATOR_STOP);
+        g_mission_status = mission_core_status(&g_vc_core); /* one store */
     }
-    else if ((APP_REMOTE_CMD_START == cmd) &&
-             (APP_SYS_S1_IDLE == (app_sys_state_t) g_vc_ms.sys_state))
+    for (i = 0U; i < p_out->n_tev; i++)
     {
-        try_start_run();
-    }
-    else
-    {
-        app_ipc_telem_post(
-            APP_TEV_CMD_REJECTED, APP_SRC_CONTROLLER,
-            (uint16_t) (0x0100U | (uint16_t) APP_CMD_START_STATE));
+        app_ipc_telem_post((app_telem_event_t) p_out->tev[i].type,
+                           APP_SRC_CONTROLLER, p_out->tev[i].payload);
     }
 }
 
 static void
 vehicle_controller_task (INT stacd, void * p_exinf)
 {
-    UINT ptn;
-    ER   er;
+    static mission_in_t  in; /* large: keep off the task stack */
+    static mission_out_t out;
+    UINT                 ptn;
+    ER                   er;
 
     (void) stacd;
     (void) p_exinf;
@@ -279,22 +162,14 @@ vehicle_controller_task (INT stacd, void * p_exinf)
         {
             continue;
         }
-        if (0U != (ptn & APP_EVT_SAFE_STOP))
-        {
-            g_vc_s7_hold_ticks = 0U;
-            set_state(APP_SYS_S7_SAFE_STOP);
-        }
-        if (0U != (ptn & APP_EVT_REMOTE_CMD))
-        {
-            remote_cmd();
-        }
         if (0U != (ptn & APP_EVT_TICK))
         {
-            tick();
+            g_ctrl_heartbeat++;
         }
-        /* EVT_LINE_*, EVT_JUNCTION, EVT_BARCODE, EVT_MOTION_*, EVT_HUMP_*,
-           EVT_OBSTACLE, EVT_SCAN_*: consumed in Phase 7. Bits are cleared by
-           TWF_BITCLR so nothing is left pending from a previous run. */
+        gather((uint32_t) ptn, &in);
+        mission_core_step(&g_vc_core, &in, &out);
+        act(&out);
+        g_vc_steps++;
     }
 }
 
@@ -318,11 +193,8 @@ vehicle_controller_set_boot_check (uint32_t hw_ok_bits)
 int32_t
 vehicle_controller_init (void)
 {
-    g_vc_ms.sys_state   = (uint8_t) APP_SYS_S0_BOOT_BRAKED;
-    g_vc_ms.pending_cmd = (uint8_t) APP_NAV_NONE;
-    g_vc_ms.retry_count = 0U;
-    g_vc_ms.seq         = 0U;
-    g_mission_status    = app_mission_pack(&g_vc_ms);
+    mission_core_init(&g_vc_core);
+    g_mission_status = mission_core_status(&g_vc_core);
 
     app_hw_gpio_input(APP_PIN_START_BTN, APP_CAL_BUTTON_ACTIVE_LOW
                                              ? APP_GPIO_PULL_UP
@@ -374,9 +246,15 @@ vehicle_controller_state (void)
     return (app_sys_state_t) view.sys_state;
 }
 
+uint32_t
+vehicle_controller_step_count (void)
+{
+    return g_vc_steps;
+}
+
 int32_t
 vehicle_controller_send_motion (app_motion_cmd_type_t type, uint8_t speed_cm_s,
-                                int16_t param, bool until_line)
+                                int16_t param, bool until_line, uint8_t seq)
 {
     app_motion_cmd_t cmd;
     uint32_t         record;
@@ -387,19 +265,18 @@ vehicle_controller_send_motion (app_motion_cmd_type_t type, uint8_t speed_cm_s,
     {
         return -1;
     }
-    g_vc_motion_seq = (uint8_t) ((g_vc_motion_seq + 1U) & 0x0FU);
-    cmd.type        = (uint8_t) type;
-    cmd.speed_cm_s  = speed_cm_s;
-    cmd.param       = param;
-    cmd.until_line  = until_line;
-    cmd.seq         = g_vc_motion_seq;
+    cmd.type       = (uint8_t) type;
+    cmd.speed_cm_s = speed_cm_s;
+    cmd.param      = param;
+    cmd.until_line = until_line;
+    cmd.seq        = seq;
     (void) app_motion_cmd_pack(&cmd, &record);
     er = tk_snd_mbf((ID) mbf, &record, (INT) APP_MC_RECORD_BYTES, TMO_POL);
     if (er < E_OK)
     {
         app_ipc_telem_post(APP_TEV_MOTION_REJECT, APP_SRC_CONTROLLER,
-                           (uint16_t) ((uint16_t) g_vc_motion_seq << 8));
+                           (uint16_t) ((uint16_t) seq << VC_REJECT_SEQ_SHIFT));
         return -1;
     }
-    return (int32_t) g_vc_motion_seq;
+    return 0;
 }

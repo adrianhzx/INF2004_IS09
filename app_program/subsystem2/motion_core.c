@@ -485,8 +485,12 @@ control_step (motion_core_t * p_core, app_line_state_t const * p_line,
         (abs_i32(p_core->move_ticks_l) + abs_i32(p_core->move_ticks_r)) / 2;
 
     p_core->cmd_cycles++;
-    if (p_core->cmd_cycles >= MC_MS_TO_CYCLES(APP_CAL_T_MOTION_TIMEOUT_MS))
+    if (((uint8_t) APP_MOTION_FOLLOWING != p_core->state) &&
+        (p_core->cmd_cycles >= MC_MS_TO_CYCLES(APP_CAL_T_MOTION_TIMEOUT_MS)))
     {
+        /* MOVE / TURN lifetime. FOLLOW is open-ended (D-31): it is bounded
+           by the stale-line, heartbeat and stall guards and ends only on a
+           new command or the latch. */
         finish(p_core, p_out, (uint8_t) APP_MOTION_RESULT_TIMEOUT);
     }
     else if ((uint8_t) APP_MOTION_FOLLOWING == p_core->state)
@@ -502,9 +506,17 @@ control_step (motion_core_t * p_core, app_line_state_t const * p_line,
         int32_t const target =
             ((int32_t) abs_i32(p_core->param) * (int32_t) MC_UM_PER_MM) /
             (int32_t) motion_core_um_per_tick();
-        if (progress >= target)
+        if (p_core->until_line && p_line->on_line)
         {
+            /* MOVE until_line (D-31, bypass action 5 and line search):
+               the line is the end condition, the distance the bound */
             finish(p_core, p_out, (uint8_t) APP_MOTION_RESULT_OK);
+        }
+        else if (progress >= target)
+        {
+            finish(p_core, p_out,
+                   p_core->until_line ? (uint8_t) APP_MOTION_RESULT_TIMEOUT
+                                      : (uint8_t) APP_MOTION_RESULT_OK);
         }
         else
         {

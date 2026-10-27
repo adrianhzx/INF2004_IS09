@@ -24,8 +24,10 @@ LINE_SRCS := test_line.c host_port.c $(SHARED)/app_blackboard.c \
         $(S3)/line_core.c $(S3)/barcode_core.c
 IMU_SRCS := test_imu.c host_port.c $(SHARED)/app_blackboard.c $(S4)/imu_core.c
 SCAN_SRCS := test_scan.c host_port.c $(SHARED)/app_blackboard.c $(S5)/scan_core.c
+MISSION_SRCS := test_mission.c host_port.c $(SHARED)/app_blackboard.c \
+        $(SHARED)/mission_core.c
 
-all: test_shared test_motion test_line test_imu test_scan
+all: test_shared test_motion test_line test_imu test_scan test_mission
 
 test_shared: $(SRCS) $(wildcard $(SHARED)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(SRCS)
@@ -42,14 +44,18 @@ test_imu: $(IMU_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S4)/*.h) host_port.
 test_scan: $(SCAN_SRCS) $(wildcard $(SHARED)/*.h) $(wildcard $(S5)/*.h) host_port.h
 	$(CC) $(CFLAGS) -o $@ $(SCAN_SRCS) -lm
 
-run: test_shared test_motion test_line test_imu test_scan
+test_mission: $(MISSION_SRCS) $(wildcard $(SHARED)/*.h) host_port.h
+	$(CC) $(CFLAGS) -o $@ $(MISSION_SRCS)
+
+run: test_shared test_motion test_line test_imu test_scan test_mission
 	./test_shared
 	./test_motion
 	./test_line
 	./test_imu
 	./test_scan
+	./test_mission
 
 clean:
-	rm -f test_shared test_motion test_line test_imu test_scan vectors.txt
+	rm -f test_shared test_motion test_line test_imu test_scan test_mission vectors.txt
 
 .PHONY: all run clean

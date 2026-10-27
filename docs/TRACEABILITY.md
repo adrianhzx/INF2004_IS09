@@ -9,15 +9,15 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 (`make TEST=1`, log in `testing/*/logs`), B = bench procedure
 (`docs/HARDWARE_VALIDATION.md`), C = course trial.
 
-| ID | Requirement (short) | Owner | Implementation | Test | Status (Phase 1) |
+| ID | Requirement (short) | Owner | Implementation | Test | Status (Phase 7) |
 |---|---|---|---|---|---|
-| FR1 | line following | B3 + B2 | `line_core.c` error/steer (H-LN-09..12) feeding `motion_core` FOLLOW (H-MO) | C | NOT RUN (host logic PASS; HV-10 polarity pending) |
-| FR2 | line loss + bounded search | B3 + ctrl | LOST after T_LOST, FOUND on return (H-LN-19..23); search = Phase 7 | C | NOT RUN (host logic PASS) |
+| FR1 | line following | B3 + B2 + ctrl | `line_core.c` error/steer (H-LN-09..12) feeding `motion_core` FOLLOW (H-MO); controller S2 issues FOLLOW(V_NOM) and keeps it open-ended (H-MI-04, H-MI-73; D-31 H-MO-44) | C | NOT RUN (host logic PASS; HV-10 polarity pending; motion disarmed) |
+| FR2 | line loss + bounded search | B3 + ctrl | LOST after T_LOST, FOUND on return (H-LN-19..23); controller S5: sweep toward the last side, opposite double sweep, re-centre, creep until_line, all bounded by T_LINE_SEARCH -> LINE_SEARCH_TIMEOUT (H-MI-21..27) | H + C | HOST PASS; course NOT RUN |
 | FR3 | junction detection | B3 | both-dark >= T_JUNC, once, re-armed (H-LN-14..18) | C | NOT RUN (host logic PASS) |
 | FR4 | barcode detection while moving | B3 | GP7 ISR -> `g_edge_ring` -> BarcodeDecodeTask (`task_barcode.c`), S3-U05 forced-edge path | T | NOT RUN (H-ER + H-BC PASS) |
 | FR5 | decode A/B/C/D or invalid | B3 | `barcode_core_decode` Code 39, forward + reversed, 3 speeds (H-BC-01..08) | H + C | HOST PASS; target NOT RUN |
-| FR6 | execute nav command at junction | ctrl + B2 | Phase 7 | C | NOT RUN |
-| FR7 | invalid barcode: continue + report | B3 + ctrl | INV_NO_MATCH / INV_OVERFLOW published with seq + `APP_TEV_BARCODE` (H-BC-17, 20, 21); controller reaction = Phase 7 | C | NOT RUN (host PASS) |
+| FR6 | execute nav command at junction | ctrl + B2 | `mission_core.c` S3: BRAKE, D_JUNC_ADVANCE, TURN +-90 / 180 until_line or MOVE D_JUNC_CLEAR, then FOLLOW; pending cleared after reacquisition (H-MI-10..17) | H + C | HOST PASS; course NOT RUN (A5 turn geometry, HV-3) |
+| FR7 | invalid barcode: continue + report | B3 + ctrl | INV_NO_MATCH / INV_OVERFLOW published with seq + `APP_TEV_BARCODE` (H-BC-17, 20, 21); controller leaves no pending command and stays in S2 (H-MI-07) | H + C | HOST PASS; course NOT RUN |
 | FR8 | move/turn/stop by encoders, signal completion | B2 | `subsystem2/motion_core.c` MOVE/TURN/BRAKE, `done_seq`+`EVT_MOTION_DONE` (H-MO-23..33 PASS on a simulated car) | H PASS, B (HV-3/4) + C NOT RUN | PARTIAL |
 | FR9 | hump detection | B4 | `imu_core.c` FLAT->CLIMBING after theta_ON held 50 ms while moving and fresh (H-IM-16) | H + B | HOST PASS; bench NOT RUN (HV-12) |
 | FR10 | peak height estimate | B4 | distance x sin(pitch) x K_CAL, peak over the episode, 127 mm saturation -> DEGRADED (H-IM-22, 34, 41) | H + B (HV-14) | HOST PASS; NFR15 NOT MEASURED |
@@ -25,17 +25,17 @@ Evidence kinds: H = host test (`testing/host`), T = on-target self-test
 | FR12 | six motion classes + change reports | B4 | `classify()` STATIONARY/ACCELERATING/TURNING/CLIMBING/DESCENDING/IMPACT (+CRUISING), `APP_TEV_MOTION_CLASS` on change (H-IM-18, 19, 44..55) | H | HOST PASS (TURNING comes from MotionStatus, no gyro) |
 | FR13 | IMU collision -> latched stop | B4 + shared | two >= 2.5 g spikes while moving (H-IM-43..49) -> `app_safe_stop_request(COLLISION)` first, then IMU_FAULT (`task_imu.c`, D-18/D-19) | H PASS, T NOT RUN, B (HV-13) NOT RUN | PARTIAL (threshold A9 unvalidated) |
 | FR14 | detect an obstacle ahead | B5 | forward watch every 100 ms, two consecutive readings at/inside D_STOP -> EVT_OBSTACLE (H-SC-12..17) | H + B | HOST PASS; bench NOT RUN (HV-5) |
-| FR15 | stop before the obstacle | B5 + ctrl | EVT_OBSTACLE -> controller BRAKE (Phase 7); NFR2 budget: 2 x 100 ms + 10 ms | C | NOT RUN |
+| FR15 | stop before the obstacle | B5 + ctrl | EVT_OBSTACLE -> S4: watch off, BRAKE, wait speed 0 (bounded T_SPEED_ZERO) before REQ_PROFILE (H-MI-30, H-MI-54); NFR2 budget 2 x 100 ms + 20 + 10 ms | H + C | HOST PASS; clearance NOT MEASURED |
 | FR16 | coarse + fine profile: location, width, closest, side clearances | B5 | `profile_scan` (9 coarse, 5 deg fine window), `scan_core_build_profile` y_min/y_max/width/closest with beam correction (H-SC-21..33) | H + B (HV-15) | HOST PASS; NFR10/11 NOT MEASURED |
-| FR17 | choose a bypass side | B5 + ctrl | `action` LEFT/RIGHT/REVERSE/STOP from the Rev B validity rules (D-21, H-SC-26..31); controller executes (Phase 7) | H | HOST PASS |
-| FR18 | side ranging during the pass | B5 | REQ_SIDE_L/R, two readings inside D_SIDE_UNSAFE -> EVT_SIDE_UNSAFE (H-SC-34..37) | H | HOST PASS |
-| FR19 | reacquire the line after the bypass | ctrl + B3 | Phase 7 (actions 5-6, until_line) | C | NOT RUN |
+| FR17 | choose a bypass side | B5 + ctrl | `action` LEFT/RIGHT/REVERSE/STOP from the Rev B validity rules (D-21, H-SC-26..31); controller applies the post-brake clearance guard, computes the lateral offset, retries by reverse-and-rescan up to N_RETRY_MAX over a proven-clear corridor, else NO_CLEARANCE (H-MI-31, 41..49) | H | HOST PASS |
+| FR18 | leave the line and pass without touching | B5 + ctrl | six actions in `mission_core.c` (A1-A4: H-MI-31..35) with REQ_SIDE_L/R ranging; EVT_SIDE_UNSAFE -> NO_CLEARANCE (H-SC-34..37, H-MI-53); whole S4 bounded by T_BYPASS_MAX (H-MI-55) | H + C | HOST PASS; course NOT RUN |
+| FR19 | reacquire the line after the bypass | ctrl + B3 + B2 | actions 5-6: TURN toward the line, MOVE until_line (D-31, H-MO-45..47), TURN until_line to align, then FOLLOW + watch on (H-MI-36..39); A5 miss -> S5 search (H-MI-56) | H + C | HOST PASS; course NOT RUN |
 | FR20 | Wi-Fi + MQTT telemetry of all listed items | B1 | `s1_snapshot_build` from every blackboard word (H-S1-SNAP, S1-U05/U06 PASS on target 22 Oct), bridge `mqtt_utk.c` publishes `MBF_TELEM_OUT` (D-10) | H PASS, T PASS, bench B1 FAIL (stall) -> fix2 NOT RUN | PARTIAL (radio path unverified since fix2) |
 | FR21 | periodic heartbeat/status | B1 | 1 s HB with conn_state, back-off, dropped (S1-U07 PASS on target; B1 1.00 Hz while flowing) | T PASS, bench NOT RUN since fix2 | PARTIAL |
 | FR22 | auto reconnect while autonomy continues | B1 | `link_lost()` -> back-off 1-2-4-8-10 s -> reconnect; 5 s connect deadline; 5 s publish stall -> link lost (fix2 `fc3109f`) | bench B3/B4/B9 NOT RUN | NOT RUN (code complete, untested) |
-| FR23 | command topic, START/STOP only | B1 + ctrl | bridge subscribes `is09/is09-car/cmd` -> `MBF_TELEM_IN` -> `s1_cmd_filter` (H-S1-CMD, S1-U08 PASS on target) -> controller guard | H PASS, T PASS, bench B5/B6 NOT RUN | PARTIAL |
-| FR24 | local START run / STOP latched stop | ctrl | `vehicle_controller.c` button ISR + debounce + S7 | T (SH-U08 NOT RUN), B (HV-6) | PARTIAL |
-| FR25 | brake + latch on stall / stale / timeouts, report cause | all | motion producers STALL/STALE_LINE/CTRL_HEARTBEAT/ENCODER (H-MO-36..41 PASS); controller timeouts Phase 7 | H PASS | PARTIAL |
+| FR23 | command topic, START/STOP only | B1 + ctrl | bridge subscribes `is09/is09-car/cmd` -> `MBF_TELEM_IN` -> `s1_cmd_filter` (H-S1-CMD, S1-U08 PASS on target) -> controller: START only in S1, STOP -> SafeStop(OPERATOR_STOP) (H-MI-69..71) | H PASS, T PASS, bench B5/B6 NOT RUN | PARTIAL |
+| FR24 | local START run / STOP latched stop | ctrl | button ISR (STOP calls SafeStop from the ISR), START debounce + once-per-press, S7 recovery guard (H-MI-02..06, 60..68; SH-U08 PASS 27 Oct) | T PASS (SH-U08), B (HV-6) NOT RUN | PARTIAL |
+| FR25 | brake + latch on stall / stale / timeouts, report cause | all | motion producers STALL/STALE_LINE/CTRL_HEARTBEAT/ENCODER (H-MO-36..41); controller SCAN_TIMEOUT (H-MI-50/51), NO_CLEARANCE (H-MI-46/47/53/55/57), LINE_SEARCH_TIMEOUT (H-MI-26/27), CRITICAL_RUNTIME (H-MI-54/72); cause in snapshot + EVT_SAFE_STOP | H PASS, T (SH-U08b) PASS | PARTIAL (course NOT RUN) |
 | NFR1 | brake <= 20 ms after latch | B2 | `task_motion.c` brakes on the latch byte before any other work, 10 ms cycle (H-MO-20 same-cycle brake) | B (HV-9) | NOT RUN (design margin: 10 ms cycle + handler latency) |
 | NFR2 | brake cmd <= 250 ms inside D_STOP | B5 + ctrl | watch tick 100 ms x 2 confirmations + controller tick 20 ms + motion cycle 10 ms = 230 ms worst case by design; clearance [TBC] | C | NOT RUN (design budget only) |
 | NFR3 | line update every 10 ms | B3 | CYC_10MS wake slot LINE, `s3_line_cycle` (S3-U02, S3-U03) | T | NOT RUN |

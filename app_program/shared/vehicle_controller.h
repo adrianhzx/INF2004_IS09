@@ -3,13 +3,15 @@
  *         local START/STOP, guarded S7 recovery, controller heartbeat.
  *         Shared integration module (human owner: TBC, D-09).
  *
- *  Phase 1 implements: task creation, FLG_CTRL event loop, 20 ms tick,
- *  button ISR + debounce, S0 -> S1 after a passed boot self-check,
- *  EVT_SAFE_STOP -> S7 from every state, the S7 recovery guard, the
- *  controller heartbeat and the motion-command sender.
- *  NOT IMPLEMENTED until Phase 7: S2-S6 mission behaviour (line following,
- *  barcode -> junction -> nav, line search, obstacle bypass, completion).
- *  Entering S2 is refused while APP_CAL_MOTION_ARMED == 0.
+ *  The task is a thin shell around the pure statechart in mission_core.c:
+ *  it waits on FLG_CTRL, gathers the inputs (events, buttons, blackboards,
+ *  the obstacle profile under its mutex), runs one mission_core_step() and
+ *  acts on the outputs in a fixed order: SafeStop request, motion record,
+ *  scan request, guarded latch clear, MissionStatus publish, telemetry.
+ *  Phase 7: S2-S5 implemented (line following, barcode -> junction -> nav,
+ *  obstacle bypass with six actions and bounded retry, bounded line search).
+ *  S6 has no producer on a loop course (D-28). Entering S2 is refused while
+ *  APP_CAL_MOTION_ARMED == 0.
  */
 
 #ifndef VEHICLE_CONTROLLER_H
@@ -35,11 +37,15 @@ int32_t vehicle_controller_start (void); /* creates and starts the task */
 /** Current system state (from the published MissionStatus word). */
 app_sys_state_t vehicle_controller_state (void);
 
-/** Send a motion command (non-blocking). Returns the assigned seq (0..15)
- *  or -1 if the queue is full / absent / latched. Controller-only API. */
+/** Send a motion command record (non-blocking). Returns 0 or -1 if the
+ *  queue is full / absent / latched. Controller-only API; the sequence
+ *  number is assigned by the mission core. */
 int32_t vehicle_controller_send_motion (app_motion_cmd_type_t type,
                                         uint8_t speed_cm_s, int16_t param,
-                                        bool until_line);
+                                        bool until_line, uint8_t seq);
+
+/** Diagnostics for the on-target tests. */
+uint32_t vehicle_controller_step_count (void);
 
 #if APP_TEST
 void vehicle_controller_test (void);

@@ -136,7 +136,7 @@ Never add `CRASH_REPORT=1` or `CONSOLE=uart` while encoders occupy GP0/GP1.
 | 4 IMU | DONE (host-verified, target-built, bench NOT RUN) | see section 9 |
 | 5 Obstacle | DONE (host-verified, target-built, bench NOT RUN, outputs gated) | see section 10 |
 | 6 Wi-Fi/MQTT | CODE COMPLETE, BENCH NOT VERIFIED: TelemetryCommsTask (Buddy 1, host 62 PASS, on-target S1-U01..U10 10/0 on 22 Oct) + `mqtt_utk.c` bridge with fix2 merged 23 Oct (D-10 HOLD for agreement). Bench B1 FAILED on the pre-fix bridge (silent stall at 48.8 s); fix2 NOT RUN on hardware | see section 11, testing/subsystem1/TEST_LOG.md |
-| 7 Integration | STARTED 27 Oct: step 1 (convergence of the five subsystem branches) DONE at `c3920d3`; VehicleControllerTask S2-S6 NOT STARTED | see section 12 |
+| 7 Integration | CODE COMPLETE 27 Oct (host-verified, target-built, course NOT RUN, motion disarmed): convergence `c3920d3`; mission statechart S2-S5 in `mission_core.c` + controller shell; S6 unreachable by design (D-28) | sections 12-13 |
 | 8 Evidence | NOT STARTED | |
 
 ## 6. Phase 1 record (shared interface, codecs, safety foundation)
@@ -575,3 +575,64 @@ retry), S5 LINE_SEARCH, S6 COMPLETE, remote START/STOP, hump concurrency,
 `testing/host/test_controller.c`; motion stays disarmed. Before that, the
 user pushes this branch (bundle) so GitHub carries Phases 2-6 and the
 convergence.
+
+## 13. Phase 7, step 2: VehicleControllerTask S2-S5 and full integration (27 Oct 2026)
+
+Team answers taken before coding (27 Oct): the course is a closed loop with
+no end (D-28); motion stays disarmed until the team measures HV-3/HV-4; a
+junction without a pending command is crossed straight (D-29); an obstacle
+during S3/S5 brakes and latches NO_CLEARANCE (D-30).
+
+### Files written / changed
+
+| Path | Role |
+|---|---|
+| `app_program/shared/mission_core.[ch]` | pure mission statechart: S0 BOOT -> S1 IDLE (boot check + executor BRAKED), START debounce once per press, remote START only in S1, S2 FOLLOW_LINE (FOLLOW(V_NOM), watch on; barcode -> pending_cmd with newer-replaces-older; junction -> S3; line lost -> S5; obstacle -> S4), S3 EXECUTE_NAV (optional D_JUNC_ADVANCE, TURN +-90/180 until_line or MOVE D_JUNC_CLEAR; OK -> FOLLOW, TIMEOUT -> S5), S4 OBSTACLE_BYPASS (watch off, BRAKE, speed 0 within T_SPEED_ZERO, REQ_PROFILE, SCAN_DONE/FAIL/T_SCAN_TIMEOUT, post-brake clearance guard, offset = edge + W_car/2 + M_clear clamped to Y_PATH_MAX, six actions with SIDE_L/R ranging, obstacle-passed = SIDE_FREE_COUNT readings above R_SIDE_FREE after D_PASS_MIN then D_PASS_EXTRA, A5 MOVE until_line bounded by offset + margin, A6 TURN until_line, reverse-and-rescan up to N_RETRY_MAX over a corridor the car has itself driven (D_REVERSE + margin), else NO_CLEARANCE; T_BYPASS_MAX), S5 LINE_SEARCH (sweep toward the last line side, double sweep back, re-centre, creep until_line; T_LINE_SEARCH -> LINE_SEARCH_TIMEOUT), S7 (every mission state; recovery guard: speed 0, initiating condition cleared, START held T_HOLD -> clear -> S0, never straight to driving). Motion sequencer: one record per step, BRAKE first whenever the executor is not BRAKED (Rev B 6.2 acceptance rule), completion by seq match + DONE event, repeated rejection -> CRITICAL_RUNTIME |
+| `app_program/shared/vehicle_controller.[ch]` | task shell: FLG_CTRL wait, input gathering (latch, cause, faults, buttons, remote command by generation, MotionStatus, LineState, barcode byte, profile copy under the mutex), one core step, outputs in a fixed order (SafeStop request, motion record, FLG_SCAN request, guarded clear, MissionStatus store, telemetry events); heartbeat per tick; `vehicle_controller_send_motion` now takes the core's seq |
+| `app_program/shared/app_ipc.[ch]` | `app_ipc_flg_scan()` accessor |
+| `app_program/shared/app_cal.h` | `APP_CAL_D_JUNC_CLEAR_MM`, `D_JUNC_ADVANCE_MM`, `T_SPEED_ZERO_MS`, `T_SCAN_WAIT_MARGIN_MS`, `N_RETRY_MAX`, `D_REVERSE_MARGIN_MM`, `SIDE_FREE_COUNT`, `D_PASS_MIN_MM`, `D_PASS_EXTRA_MM`, `D_RETURN_MARGIN_MM`, `T_BYPASS_MAX_MS`, `SEARCH_ANGLE_DDEG`, `D_SEARCH_CREEP_MM` (all `[TBC]`) |
+| `app_program/shared/app_data.h` | telemetry events `APP_TEV_NAV` (20), `APP_TEV_BYPASS` (21), `APP_TEV_SEARCH` (22) |
+| `app_program/subsystem2/motion_core.c` | D-31: FOLLOW has no lifetime timeout; MOVE honours until_line (OK on line, TIMEOUT at the bound) |
+| `testing/host/test_mission.c` | 74 checks against a simulated car (executor with the BRAKED acceptance rule, scanner with profile and side range, latch, buttons, remote frames); `MI_DEBUG=1` prints a per-step trace |
+| `testing/host/test_motion.c` | H-MO-44..47 for D-31 |
+| `tools/telem_decode.py` | NAV / BYPASS / SEARCH event names |
+| `tools/barr-c/check_app.sh` | mission_core + test_mission in the clang-tidy set |
+| `testing/integration/TEST_LOG.md` | INT-03 (host) PASS; INT-04..INT-12 bench/course procedures NOT RUN |
+| `docs/TRACEABILITY.md`, `docs/DECISION_REGISTER.md` (D-28..D-31) | updated |
+
+### Validation (this container, 27 Oct)
+
+| Check | Result |
+|---|---|
+| `make SMP=0 NET=lwip MQTT=1 -j8` | PASS, 0 warnings, text 351858 / bss 79388 (+4804 B text over `025dda4`: mission core + shell) |
+| `make SMP=0 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings, 368074 / 79636 |
+| `make SMP=0 -j8`, `make SMP=1 NET=lwip MQTT=1 TEST=1 -j8` | PASS, 0 warnings |
+| Host suites | shared 418 / motion 60 / line 114 / imu 56 / scan 37 / mission 74 / s1 62 passed, 0 failed |
+| Decoder parity | 7 vectors ok |
+| `tools/barr-c/check_app.sh` | PASS (mission_core.c split into < 100-line functions; unsigned payload helper) |
+| On-target: any of INT-04..INT-12, NFR1/2/14 | **NOT RUN** (motion disarmed; HV-3/4/5/7 unsigned) |
+
+### What the integrated image does on the car today
+
+With `APP_CAL_MOTION_ARMED 0` the demo image boots to S1 and refuses START
+(`EVT CMD_REJECTED 0x0001`), exactly as before. Everything else is live:
+the line, IMU, scan (gated) and telemetry tasks run, STOP latches, the
+recovery guard works. The mission statechart only engages once the team
+sets `APP_CAL_TICKS_PER_REV`, the wheel geometry and `APP_CAL_MOTION_ARMED 1`
+after HV-3/HV-4 (and `APP_CAL_ECHO_SHIFTER_VERIFIED` / `APP_CAL_SERVO_ARMED`
+for the bypass after HV-5/HV-7).
+
+### Status statements (honest)
+
+BUILD PASS (4 profiles). HOST TEST PASS (821 checks). TARGET self-tests
+PASS 27 Oct for S2-S5 and SH (before this step; re-run pending). INTEGRATED
+AUTONOMY NOT VERIFIED: no wheel has turned under this controller. NFR1,
+NFR2, NFR14 NOT MEASURED.
+
+### Next executable step
+
+Team: HV-3/HV-4 with S2-U07, arm motion, run INT-04..INT-10 on blocks, then
+INT-11/INT-12 on the floor; commit console logs. Chat: PHASE 8 (Week 13
+evidence: packed sizes vs estimate, CPU idle / stack via `tk_ref_tsk`,
+bench logs, traceability final pass) on `CONTINUE`.
+

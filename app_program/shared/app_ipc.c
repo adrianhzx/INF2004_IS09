@@ -135,6 +135,12 @@ app_ipc_flg_ctrl (void)
     return g_flg_ctrl;
 }
 
+int32_t
+app_ipc_flg_scan (void)
+{
+    return g_flg_scan;
+}
+
 uint32_t
 app_ipc_ms (void)
 {

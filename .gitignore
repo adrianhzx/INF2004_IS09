@@ -31,5 +31,6 @@ testing/host/test_motion
 testing/host/test_line
 testing/host/test_imu
 testing/host/test_scan
+testing/host/test_mission
 testing/subsystem1/host/test_s1
 tools/__pycache__/

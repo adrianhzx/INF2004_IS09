@@ -49,7 +49,8 @@ SRC="app_program/shared/app_safety.c app_program/shared/app_ipc.c app_program/sh
      app_program/subsystem3/barcode_core.h app_program/subsystem3/drv_line_adc.h testing/host/test_line.c \
      app_program/subsystem4/imu_core.c app_program/subsystem4/imu_core.h app_program/subsystem4/drv_i2c.h \
      app_program/subsystem4/drv_lsm303.h testing/host/test_imu.c \
-     app_program/subsystem5/scan_core.c app_program/subsystem5/scan_core.h app_program/subsystem5/drv_servo.h testing/host/test_scan.c"
+     app_program/subsystem5/scan_core.c app_program/subsystem5/scan_core.h app_program/subsystem5/drv_servo.h testing/host/test_scan.c \
+     app_program/shared/mission_core.c app_program/shared/mission_core.h testing/host/test_mission.c"
 TIDY_OUT=$(clang-tidy --quiet $SRC -- -x c -std=c99 -Wall -DAPP_HOST_TEST=1 -Itesting/host -Iapp_program/shared -Iapp_program/subsystem2 -Iapp_program/subsystem3 -Iapp_program/subsystem4 -Iapp_program/subsystem5 2>&1 | grep -E "warning:|error:" | grep -v "unused-macros" || true)
 if [ -n "$TIDY_OUT" ]; then echo "$TIDY_OUT"; echo "FAIL: clang-tidy findings"; exit 1; fi
 echo "(no clang-tidy findings on host-buildable sources and shared headers)"

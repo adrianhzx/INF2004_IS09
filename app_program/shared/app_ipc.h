@@ -121,6 +121,9 @@ int32_t app_ipc_mbf_motion (void);
 /** FLG_CTRL event flag ID (valid after app_ipc_init). */
 int32_t app_ipc_flg_ctrl (void);
 
+/** FLG_SCAN event flag ID (0 until subsystem5 registered it). */
+int32_t app_ipc_flg_scan (void);
+
 /** Milliseconds since the cyclic handler started (10 ms resolution, wraps). */
 uint32_t app_ipc_ms (void);
 

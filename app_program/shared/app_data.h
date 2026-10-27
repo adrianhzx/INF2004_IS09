@@ -463,7 +463,10 @@ typedef enum
     APP_TEV_BOOT          = 17, /* payload: self-check bits */
     APP_TEV_RECOVERY      = 18, /* payload: 0 */
     APP_TEV_MOTION_CLASS  = 19, /* payload: class */
-    APP_TEV_COUNT         = 20
+    APP_TEV_NAV    = 20, /* payload: nav_cmd<<8 | 0 start / 1 done / 2 lost */
+    APP_TEV_BYPASS = 21, /* payload: step<<8 | detail (side, retry) */
+    APP_TEV_SEARCH = 22, /* payload: step<<8 | 0 start / 1 found / 2 fail */
+    APP_TEV_COUNT  = 23
 } app_telem_event_t;
 
 APP_STATIC_ASSERT(APP_TEV_COUNT <= 32, telem_event_fits_5_bits);
