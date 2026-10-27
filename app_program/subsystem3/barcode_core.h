@@ -45,6 +45,13 @@ typedef struct
     uint32_t stats_decoded;
     uint32_t stats_invalid;
     uint32_t stats_stray;
+#if defined(APP_TEST) && APP_TEST
+    /* TEST build only (S3-U08): copy of the last capture as it reached the
+       quiet zone. dbg_seq is odd while being written. */
+    volatile uint32_t dbg_seq;
+    uint8_t           dbg_count;
+    uint16_t          dbg_width[BC_MAX_ELEMENTS];
+#endif
 } barcode_core_t;
 
 typedef struct

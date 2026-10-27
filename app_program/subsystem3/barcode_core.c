@@ -164,6 +164,10 @@ barcode_core_init (barcode_core_t * p_core)
     p_core->stats_decoded = 0U;
     p_core->stats_invalid = 0U;
     p_core->stats_stray   = 0U;
+#if defined(APP_TEST) && APP_TEST
+    p_core->dbg_seq   = 0U;
+    p_core->dbg_count = 0U;
+#endif
 }
 
 void
@@ -307,6 +311,18 @@ barcode_core_quiet (barcode_core_t * p_core, bool overflow,
         return;
     }
     p_core->merge_pending = false;
+#if defined(APP_TEST) && APP_TEST
+    {
+        uint32_t k = 0U;
+        p_core->dbg_seq++; /* odd: copy in progress */
+        p_core->dbg_count = p_core->count;
+        for (k = 0U; (k < p_core->count) && (k < BC_MAX_ELEMENTS); k++)
+        {
+            p_core->dbg_width[k] = p_core->width[k];
+        }
+        p_core->dbg_seq++; /* even: copy complete */
+    }
+#endif
     if (overflow)
     {
         p_out->overflow_fault = true;

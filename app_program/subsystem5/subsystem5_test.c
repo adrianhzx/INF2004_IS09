@@ -1,5 +1,5 @@
 /** @file subsystem5_test.c
- *  @brief On-target tests for subsystem 5 (make TEST=1). IDs S5-U01..S5-U06.
+ *  @brief On-target tests for subsystem 5 (make TEST=1). IDs S5-U01..S5-U08.
  *         Logged in testing/subsystem5/TEST_LOG.md. Safe with both hardware
  *         gates unsigned: the servo pin is not routed, TRIG never rises, and
  *         the echo path is exercised by forcing GP17 interrupts.
@@ -20,6 +20,12 @@
 #define S5_T_ECHO_TOL_US 60U
 #define S5_T_SCAN_WAIT_MS 300U
 #define S5_T_WATCH_MS 1000U
+#define S5_T_TRIG_US 10U        /* HC-SR04 trigger pulse */
+#define S5_T_LIVE_GAP_MS 200U   /* S5-U07: 5 readings per second */
+#define S5_T_SWEEP_STEP 3U      /* S5-U08: 3 x 5 deg = 15 deg per step */
+#define S5_T_SWEEP_HALF_IDX 12U /* S5-U08: +-60 deg around ahead */
+#define S5_T_SWEEP_EXTRA_MS 80U /* S5-U08: margin over the settle time */
+#define S5_T_SWEEP_START_MS 1000U
 
 static void
 force_echo (uint32_t width_us)
@@ -30,6 +36,129 @@ force_echo (uint32_t width_us)
     app_hw_gpio_irq_force(APP_PIN_US_ECHO, APP_GPIO_IRQ_EDGE_FALL, true);
     app_hw_gpio_irq_force(APP_PIN_US_ECHO, APP_GPIO_IRQ_EDGE_FALL, false);
 }
+
+#if APP_CAL_ECHO_SHIFTER_VERIFIED
+/** One real HC-SR04 ranging (TRIG pulse, wait for EchoIsr). Returns true
+ *  and the echo width when a valid echo was measured. */
+static bool
+s5t_range (uint16_t * p_width_us)
+{
+    UINT ptn = 0U;
+    ER   er  = E_OK;
+    bool ok  = false;
+
+    (void) tk_wai_flg(flg_scan, (UINT) APP_SCAN_ECHO_DONE, TWF_ORW | TWF_BITCLR,
+                      &ptn, TMO_POL);
+    g_echo_status = APP_ECHO_ARMED;
+    app_hw_gpio_write(APP_PIN_US_TRIG, true);
+    app_hw_delay_us(S5_T_TRIG_US);
+    app_hw_gpio_write(APP_PIN_US_TRIG, false);
+    er = tk_wai_flg(flg_scan, (UINT) APP_SCAN_ECHO_DONE, TWF_ORW | TWF_BITCLR,
+                    &ptn, (TMO) (APP_CAL_T_ECHO_TIMEOUT_MS + 5U));
+    if ((E_OK == er) && (APP_ECHO_DONE == g_echo_status))
+    {
+        *p_width_us = g_echo_width_us;
+        ok          = true;
+    }
+    g_echo_status = APP_ECHO_IDLE;
+    return ok;
+}
+#endif
+
+#if APP_CAL_ECHO_SHIFTER_VERIFIED && !APP_CAL_SERVO_ARMED
+/** S5-U07: sensor only, servo not needed. Prints distance 5 times/s. */
+static void
+s5t_live_range_loop (void)
+{
+    uint32_t i = 0U;
+    uint16_t w = 0U;
+
+    tm_printf((UB *) "[TEST] S5-U07 INFO  live ranging LOOP (never ends; "
+                     "unplug to stop), move an object 5-100 cm in front of "
+                     "the sensor\n");
+    s5_echo_irq_enable(true);
+    for (i = 0U;; i++)
+    {
+        if (s5t_range(&w))
+        {
+            tm_printf((UB *) "[TEST] S5-U07 #%04u  distance %3u cm  "
+                             "(echo %5u us)\n",
+                      (unsigned) i, (unsigned) app_obstacle_us_to_cm(w),
+                      (unsigned) w);
+        }
+        else
+        {
+            tm_printf((UB *) "[TEST] S5-U07 #%04u  no echo (too close, "
+                             "nothing in range, or wiring)\n",
+                      (unsigned) i);
+        }
+        (void) tk_dly_tsk(S5_T_LIVE_GAP_MS);
+    }
+}
+#endif
+
+#if APP_CAL_SERVO_ARMED
+/** S5-U08: servo sweep -60..+60 deg in 15 deg steps and back, forever.
+ *  With the sensor gate set it also ranges at every angle (a "radar").
+ *  Angles: 0 = ahead, positive = LEFT. */
+static void
+s5t_sweep_loop (void)
+{
+    uint32_t       idx  = SC_ANGLE_AHEAD;
+    uint32_t       prev = SC_ANGLE_AHEAD;
+    uint32_t       pass = 0U;
+    int32_t        step = (int32_t) S5_T_SWEEP_STEP;
+    uint16_t       w    = 0U;
+    uint32_t const lo   = SC_ANGLE_AHEAD - S5_T_SWEEP_HALF_IDX;
+    uint32_t const hi   = SC_ANGLE_AHEAD + S5_T_SWEEP_HALF_IDX;
+
+    tm_printf((UB *) "[TEST] S5-U08 INFO  servo sweep LOOP -60..+60 deg "
+                     "(never ends; unplug to stop). Pulse limits %u-%u us\n",
+              (unsigned) APP_CAL_SERVO_MIN_US, (unsigned) APP_CAL_SERVO_MAX_US);
+    drv_servo_set_us(scan_core_servo_us(SC_ANGLE_AHEAD));
+    (void) tk_dly_tsk(S5_T_SWEEP_START_MS);
+#if APP_CAL_ECHO_SHIFTER_VERIFIED
+    s5_echo_irq_enable(true);
+#endif
+    idx = lo;
+    for (;;)
+    {
+        int32_t const deg = ((int32_t) idx - (int32_t) SC_ANGLE_AHEAD) *
+                            (int32_t) SC_DEG_PER_IDX;
+
+        drv_servo_set_us(scan_core_servo_us(idx));
+        (void) tk_dly_tsk(scan_core_settle_ms(prev, idx) + S5_T_SWEEP_EXTRA_MS);
+        prev = idx;
+#if APP_CAL_ECHO_SHIFTER_VERIFIED
+        if (s5t_range(&w))
+        {
+            tm_printf((UB *) "[TEST] S5-U08 pass %u  angle %+4d deg  pulse "
+                             "%4u us  distance %3u cm\n",
+                      (unsigned) pass, (int) deg, (unsigned) drv_servo_get_us(),
+                      (unsigned) app_obstacle_us_to_cm(w));
+        }
+        else
+        {
+            tm_printf((UB *) "[TEST] S5-U08 pass %u  angle %+4d deg  pulse "
+                             "%4u us  no echo\n",
+                      (unsigned) pass, (int) deg,
+                      (unsigned) drv_servo_get_us());
+        }
+#else
+        (void) w;
+        tm_printf((UB *) "[TEST] S5-U08 pass %u  angle %+4d deg  pulse %4u "
+                         "us (sensor gate off: no ranging)\n",
+                  (unsigned) pass, (int) deg, (unsigned) drv_servo_get_us());
+#endif
+        if (((step > 0) && (idx >= hi)) || ((step < 0) && (idx <= lo)))
+        {
+            step = -step;
+            pass++;
+        }
+        idx = (uint32_t) ((int32_t) idx + step);
+    }
+}
+#endif
 
 EXPORT void
 subsystem5_test (void)
@@ -146,6 +275,19 @@ subsystem5_test (void)
     /* S5-U06: no stop was latched by any of this. */
     TEST_CHECK("S5-U06", !app_stop_latched(),
                "scan subsystem never latches a stop by itself");
+
+    /* S5-U07 / S5-U08: live hardware loops (never return). They run only
+       once the matching gates are set, after HV-5 / HV-7 bench checks. */
+#if APP_CAL_SERVO_ARMED
+    s5t_sweep_loop();
+#elif APP_CAL_ECHO_SHIFTER_VERIFIED
+    s5t_live_range_loop();
+#else
+    tm_printf((UB *) "[TEST] S5-U07 INFO  skipped: live ranging needs "
+                     "APP_CAL_ECHO_SHIFTER_VERIFIED = 1 (HV-5)\n");
+    tm_printf((UB *) "[TEST] S5-U08 INFO  skipped: servo sweep needs "
+                     "APP_CAL_SERVO_ARMED = 1 (HV-7)\n");
+#endif
 
     TEST_SUMMARY("subsystem5");
 }

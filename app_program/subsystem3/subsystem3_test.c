@@ -1,5 +1,5 @@
 /** @file subsystem3_test.c
- *  @brief On-target tests for subsystem 3 (make TEST=1). IDs S3-U01..S3-U06.
+ *  @brief On-target tests for subsystem 3 (make TEST=1). IDs S3-U01..S3-U08.
  *         Logged in testing/subsystem3/TEST_LOG.md. No sensor is needed: the
  *         barcode path is exercised by forcing GP7 interrupts with the
  *         measured Code 39 timing, which proves ISR -> EdgeRing -> task ->
@@ -23,6 +23,18 @@
 #define S3_T_QUIET_WAIT (APP_CAL_T_QUIET_MS + 60U)
 #define S3_T_PREQUIET_MS 200U
 #define S3_MAX_CYCLE_US 300U
+/* S3-U07 live line + barcode loop: 1 = print live readings forever after
+   S3-U06 (the rest of the test run never runs); set 0 before committing. */
+#define S3_T_LIVE_LOOP 0
+#define S3_T_LIVE_GAP_MS 250U /* 4 lines per second */
+/* S3-U08 live BARCODE loop: 1 = after S3-U06, show every barcode pass in
+   detail (element count, widths, narrow/wide pattern, result) forever.
+   Takes priority over S3_T_LIVE_LOOP. Set 0 before committing. */
+#define S3_T_BC_LOOP 0
+#define S3_T_BC_TICK_MS 100U
+#define S3_T_BC_STATUS_TICKS 10U /* status line every 1 s */
+#define S3_T_BC_PER_ROW 15U
+#define S3_T_US_PER_UNIT 8U
 
 static void
 force_edge (void)
@@ -57,6 +69,230 @@ play_symbol (char const * p_middle)
         force_edge(); /* element i ends */
     }
 }
+
+#if S3_T_LIVE_LOOP && !S3_T_BC_LOOP
+static char const * const s3t_evt_name[4] = {"-", "JUNCTION", "LOST", "FOUND"};
+static char const * const s3t_bc_name[7]  = {
+    "NONE",  "LEFT",         "RIGHT",       "STRAIGHT",
+    "UTURN", "INV_NO_MATCH", "INV_OVERFLOW"};
+static char const * const s3t_bc_state[4] = {"DISARMED", "WAIT_QUIET",
+                                             "CAPTURING", "DECODING"};
+
+/** S3-U07: print live line-sensor readings and every barcode decode,
+ *  forever. Move the car (or a black line) under the IR sensors; pass a
+ *  Code 39 barcode under the barcode sensor. The decoder stays armed. */
+static void
+s3t_live_loop (void)
+{
+    uint32_t         i      = 0U;
+    uint32_t         res0   = 0U;
+    uint16_t         raw_l  = 0U;
+    uint16_t         raw_c  = 0U;
+    uint8_t          n_l    = 0U;
+    uint8_t          n_c    = 0U;
+    uint8_t          r      = 0U;
+    uint8_t          bstate = 0U;
+    app_line_state_t ls;
+
+    tm_printf((UB *) "[TEST] S3-U07 INFO  live line + barcode LOOP (never "
+                     "ends; unplug to stop). Move a black line under the IR "
+                     "sensors, pass a barcode under GP7\n");
+    (void) tk_set_flg(flg_barcode, (UINT) APP_BC_ARM);
+    res0 = s3_barcode_result_count();
+    for (i = 0U;; i++)
+    {
+        (void) tk_dly_tsk(S3_T_LIVE_GAP_MS);
+        s3_line_raw(&raw_l, &raw_c, &n_l, &n_c);
+        app_line_read(&ls);
+        bstate = s3_barcode_state();
+        tm_printf((UB *) "[TEST] S3-U07 #%04u  raw L=%4u C=%4u  norm L=%3u "
+                         "C=%3u  err=%4d steer=%4d  %s %-8s",
+                  (unsigned) i, (unsigned) raw_l, (unsigned) raw_c,
+                  (unsigned) n_l, (unsigned) n_c, (int) ls.line_error,
+                  (int) ls.steer, ls.on_line ? "ON-LINE " : "off-line",
+                  s3t_evt_name[ls.event & 3U]);
+        tm_printf((UB *) "  | GP7=%u bc=%s edges=%u\n",
+                  (unsigned) app_hw_gpio_read(APP_PIN_BARCODE_DOUT),
+                  s3t_bc_state[bstate & 3U],
+                  (unsigned) s3_barcode_edge_count());
+        if (s3_barcode_result_count() != res0)
+        {
+            res0 = s3_barcode_result_count();
+            r    = (uint8_t) app_barcode_result(g_barcode_byte);
+            tm_printf((UB *) "[TEST] S3-U07 BARCODE  >>> %s <<<  (result #%u, "
+                             "seq %u)\n",
+                      (r < 7U) ? s3t_bc_name[r] : "?", (unsigned) res0,
+                      (unsigned) app_barcode_seq(g_barcode_byte));
+        }
+    }
+}
+#endif
+
+#if S3_T_BC_LOOP
+static char const * const s3t_bc_res_name[7] = {
+    "NONE",  "LEFT",         "RIGHT",       "STRAIGHT",
+    "UTURN", "INV_NO_MATCH", "INV_OVERFLOW"};
+static char const * const s3t_bc_st_name[4] = {"DISARMED", "WAIT_QUIET",
+                                               "CAPTURING", "DECODING"};
+
+/** Print one width (8 us units) as milliseconds with one decimal. */
+static void
+s3t_print_ms (uint16_t units)
+{
+    uint32_t const us   = (uint32_t) units * S3_T_US_PER_UNIT;
+    uint32_t const ms10 = (us + 50U) / 100U;
+    tm_printf((UB *) " %u.%u", (unsigned) (ms10 / 10U),
+              (unsigned) (ms10 % 10U));
+}
+
+/** Explain one captured pass: count, widths, n/w pattern, decode. */
+static void
+s3t_report_pass (uint32_t pass, uint16_t const * p_w, uint8_t n)
+{
+    uint32_t             k     = 0U;
+    uint32_t             w_min = 0xFFFFU;
+    uint32_t             w_max = 0U;
+    uint32_t             thr   = 0U;
+    uint32_t             r10   = 0U;
+    bool                 rev   = false;
+    app_barcode_result_t res   = APP_BC_INV_NO_MATCH;
+
+    tm_printf((UB *) "[TEST] S3-U08 PASS #%u: %u elements (a barcode is 29)\n",
+              (unsigned) pass, (unsigned) n);
+    if (0U == n)
+    {
+        return;
+    }
+    for (k = 0U; k < n; k++)
+    {
+        w_min = (p_w[k] < w_min) ? p_w[k] : w_min;
+        w_max = (p_w[k] > w_max) ? p_w[k] : w_max;
+    }
+    tm_printf((UB *) "[TEST] S3-U08   widths ms (bar,space,bar,...):");
+    for (k = 0U; k < n; k++)
+    {
+        if ((0U != k) && (0U == (k % S3_T_BC_PER_ROW)))
+        {
+            tm_printf((UB *) "\n[TEST] S3-U08                              ");
+        }
+        s3t_print_ms(p_w[k]);
+    }
+    tm_printf((UB *) "\n");
+    thr = (w_min + w_max) / 2U;
+    r10 = (0U != w_min) ? ((w_max * 10U) / w_min) : 0U;
+    tm_printf((UB *) "[TEST] S3-U08   narrowest");
+    s3t_print_ms((uint16_t) w_min);
+    tm_printf((UB *) " ms, widest");
+    s3t_print_ms((uint16_t) w_max);
+    tm_printf((UB *) " ms, ratio %u.%u (needs 1.5-6.0, printed 3.0)\n",
+              (unsigned) (r10 / 10U), (unsigned) (r10 % 10U));
+    tm_printf((UB *) "[TEST] S3-U08   pattern: ");
+    for (k = 0U; k < n; k++)
+    {
+        tm_printf((UB *) "%c", (p_w[k] > thr) ? 'w' : 'n');
+        if ((8U == k) || (9U == k) || (18U == k) || (19U == k))
+        {
+            tm_printf((UB *) " ");
+        }
+    }
+    tm_printf((UB *) "\n[TEST] S3-U08   expect *A*: nwnnwnwnn n wnnnnwnnw n "
+                     "nwnnwnwnn\n");
+    if (n < (uint8_t) APP_CAL_BC_N_MIN)
+    {
+        tm_printf((UB *) "[TEST] S3-U08   -> IGNORED: fewer than %u elements = "
+                         "stray mark (partial pass, or sensor missed bars)\n",
+                  (unsigned) APP_CAL_BC_N_MIN);
+        return;
+    }
+    res = barcode_core_decode(p_w, n, &rev);
+    tm_printf((UB *) "[TEST] S3-U08   -> %s%s\n",
+              ((uint32_t) res < 7U) ? s3t_bc_res_name[res] : "?",
+              rev ? " (read backwards, still fine)" : "");
+    if (n > (uint8_t) APP_CAL_BC_ELEMENTS)
+    {
+        tm_printf((UB *) "[TEST] S3-U08   hint: TOO MANY elements -> sensor "
+                         "flickers on bar edges: turn the pot, mount 5-10 mm "
+                         "above the paper\n");
+    }
+    else if (n < (uint8_t) APP_CAL_BC_ELEMENTS)
+    {
+        tm_printf((UB *) "[TEST] S3-U08   hint: MISSING elements -> narrow "
+                         "bars not seen or pass stopped/reversed: one smooth "
+                         "steady pass, start and end on white\n");
+    }
+    else if ((r10 < 15U) || (r10 > 60U))
+    {
+        tm_printf((UB *) "[TEST] S3-U08   hint: no clear narrow/wide -> "
+                         "uneven speed; keep the speed constant\n");
+    }
+    else
+    {
+        /* 29 elements and a usable ratio */
+    }
+}
+
+/** S3-U08: live barcode diagnostics forever. Decoder stays armed. */
+static void
+s3t_barcode_loop (void)
+{
+    uint16_t w[BC_MAX_ELEMENTS];
+    uint8_t  n     = 0U;
+    uint32_t seq   = 0U;
+    uint32_t last  = 0U;
+    uint32_t pass  = 0U;
+    uint32_t tick  = 0U;
+    uint32_t e0    = 0U;
+    uint32_t res0  = 0U;
+    uint32_t dec   = 0U;
+    uint32_t inv   = 0U;
+    uint32_t stray = 0U;
+    uint8_t  r     = 0U;
+
+    tm_printf((UB *) "[TEST] S3-U08 INFO  barcode LOOP (never ends; unplug "
+                     "to stop)\n");
+    tm_printf((UB *) "[TEST] S3-U08 INFO  1) hold the sensor STILL over white, "
+                     "then over a black bar: 'edges +0' both times, GP7 "
+                     "different\n");
+    tm_printf((UB *) "[TEST] S3-U08 INFO  2) one smooth steady pass over the "
+                     "whole printed barcode, white before and after\n");
+    (void) tk_set_flg(flg_barcode, (UINT) APP_BC_ARM);
+    (void) tk_dly_tsk(20);
+    (void) s3_barcode_dbg_last(w, &n, &last);
+    e0   = s3_barcode_edge_count();
+    res0 = s3_barcode_result_count();
+    for (;;)
+    {
+        (void) tk_dly_tsk(S3_T_BC_TICK_MS);
+        tick++;
+        if (s3_barcode_dbg_last(w, &n, &seq) && (seq != last))
+        {
+            last = seq;
+            pass++;
+            s3t_report_pass(pass, w, n);
+        }
+        if (s3_barcode_result_count() != res0)
+        {
+            res0 = s3_barcode_result_count();
+            r    = (uint8_t) app_barcode_result(g_barcode_byte);
+            tm_printf((UB *) "[TEST] S3-U08 BARCODE  >>> %s <<<  (published "
+                             "to the car, result #%u)\n",
+                      (r < 7U) ? s3t_bc_res_name[r] : "?", (unsigned) res0);
+        }
+        if (0U == (tick % S3_T_BC_STATUS_TICKS))
+        {
+            s3_barcode_dbg_stats(&dec, &inv, &stray);
+            tm_printf((UB *) "[TEST] S3-U08 status  GP7=%u  edges +%u in last "
+                             "1 s (still sensor must be +0)  %s  decoded=%u "
+                             "invalid=%u ignored=%u\n",
+                      (unsigned) app_hw_gpio_read(APP_PIN_BARCODE_DOUT),
+                      (unsigned) (s3_barcode_edge_count() - e0),
+                      s3t_bc_st_name[s3_barcode_state() & 3U], (unsigned) dec,
+                      (unsigned) inv, (unsigned) stray);
+            e0 = s3_barcode_edge_count();
+        }
+    }
+}
+#endif
 
 EXPORT void
 subsystem3_test (void)
@@ -143,6 +379,12 @@ subsystem3_test (void)
     (void) tk_dly_tsk(20);
     TEST_CHECK("S3-U06", BC_DISARMED == s3_barcode_state(),
                "DISARM -> DISARMED");
+
+#if S3_T_BC_LOOP
+    s3t_barcode_loop(); /* S3-U08: never returns */
+#elif S3_T_LIVE_LOOP
+    s3t_live_loop(); /* S3-U07: never returns */
+#endif
 
     TEST_SUMMARY("subsystem3");
 }

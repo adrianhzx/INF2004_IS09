@@ -183,3 +183,34 @@ s3_barcode_state (void)
 {
     return g_s3_bc.state;
 }
+
+#if defined(APP_TEST) && APP_TEST
+bool
+s3_barcode_dbg_last (uint16_t * p_width, uint8_t * p_count, uint32_t * p_seq)
+{
+    uint32_t const s1 = g_s3_bc.dbg_seq;
+    uint32_t       k  = 0U;
+    uint8_t const  n  = g_s3_bc.dbg_count;
+
+    if (0U != (s1 & 1U))
+    {
+        return false; /* being written */
+    }
+    for (k = 0U; (k < n) && (k < BC_MAX_ELEMENTS); k++)
+    {
+        p_width[k] = g_s3_bc.dbg_width[k];
+    }
+    *p_count = n;
+    *p_seq   = s1;
+    return s1 == g_s3_bc.dbg_seq;
+}
+
+void
+s3_barcode_dbg_stats (uint32_t * p_decoded, uint32_t * p_invalid,
+                      uint32_t * p_stray)
+{
+    *p_decoded = g_s3_bc.stats_decoded;
+    *p_invalid = g_s3_bc.stats_invalid;
+    *p_stray   = g_s3_bc.stats_stray;
+}
+#endif

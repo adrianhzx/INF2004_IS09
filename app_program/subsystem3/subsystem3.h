@@ -37,5 +37,13 @@ IMPORT void s3_barcode_arm (
 IMPORT uint32_t s3_barcode_edge_count (void);
 IMPORT uint32_t s3_barcode_result_count (void);
 IMPORT uint8_t  s3_barcode_state (void);
+#if defined(APP_TEST) && APP_TEST
+/* TEST build only (S3-U08): last capture at the quiet zone, widths in 8 us
+   units. Returns false while the task is writing it (try again). */
+IMPORT bool s3_barcode_dbg_last (uint16_t * p_width, uint8_t * p_count,
+                                 uint32_t * p_seq);
+IMPORT void s3_barcode_dbg_stats (uint32_t * p_decoded, uint32_t * p_invalid,
+                                  uint32_t * p_stray);
+#endif
 
 #endif /* SUBSYSTEM3_H */

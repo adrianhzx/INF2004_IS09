@@ -176,9 +176,19 @@ app_hw_gpio_irq_take_all (uint8_t * p_status)
         /* W1C only the edge bits that are actually pending; level bits are
            read-only in INTR and clear when the level goes away. */
         uint32_t const edge_bits = ints & 0xCCCCCCCCUL;
+        /* A forced bit (INTF, written only by test code) keeps the bank IRQ
+           asserted until software clears it, so the dispatcher would re-enter
+           forever and the forcing code would never run again. Release every
+           forced bit that is being reported: a forced event fires once. */
+        uint32_t const forced =
+            in_w(APP_IO_BANK0_PROC0_INTF0 + (reg * 4U)) & ints;
         if (0U != edge_bits)
         {
             out_w(APP_IO_BANK0_INTR0 + (reg * 4U), edge_bits);
+        }
+        if (0U != forced)
+        {
+            clr_w(APP_IO_BANK0_PROC0_INTF0 + (reg * 4U), forced);
         }
         for (pin = 0U; pin < APP_IO_BANK0_REG_PINS; pin++)
         {
