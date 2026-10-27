@@ -24,6 +24,62 @@
 #define S2_TEST_MOVE_MM 200
 #define S2_TEST_SPEED 20U
 #define S2_TEST_MAX_CYCLE_US 1000U
+/* S2-U07 live encoder loop: 1 = after S2-U06 print the encoder counters
+   forever (the rest of the test run never runs); set 0 before committing.
+   Turn each wheel by hand exactly one revolution to measure HV-3's
+   ticks-per-rev; the motors stay off. */
+#define S2_T_LIVE_LOOP 0
+#define S2_T_LIVE_GAP_MS 250U /* 4 lines per second */
+#define S2_T_US_PER_INTERVAL_UNIT 32U
+
+#if S2_T_LIVE_LOOP
+static char const * const s2t_state_name[8] = {
+    "BRAKED",       "FOLLOWING", "MOVING", "TURNING",
+    "STOP_LATCHED", "?5",        "?6",     "?7"};
+
+/** S2-U07: print the raw encoder counters, the edge intervals, the glitch
+ *  count and the published MotionStatus forever. Turn one wheel by hand
+ *  through exactly one revolution and read the tick delta: that number is
+ *  APP_CAL_TICKS_PER_REV (HV-3). A delta far above 20 per hand-turn, or a
+ *  speed that saturates at 127 cm/s while the wheel is nudged, means the
+ *  provisional 20 is wrong, not the hardware. */
+static void
+s2t_live_loop (void)
+{
+    uint32_t            i  = 0U;
+    uint16_t            l0 = g_enc_ticks_l;
+    uint16_t            r0 = g_enc_ticks_r;
+    uint16_t            l  = 0U;
+    uint16_t            r  = 0U;
+    app_motion_status_t ms;
+
+    tm_printf((UB *) "[TEST] S2-U07 INFO  live encoder LOOP (never ends; "
+                     "unplug to stop). Motors stay off. Turn a wheel one "
+                     "full turn by hand and read the tick delta (HV-3)\n");
+    for (i = 0U;; i++)
+    {
+        (void) tk_dly_tsk(S2_T_LIVE_GAP_MS);
+        l = g_enc_ticks_l;
+        r = g_enc_ticks_r;
+        app_motion_read(&ms);
+        tm_printf((UB *) "[TEST] S2-U07 #%04u  ticks L=%5u R=%5u  since start "
+                         "L=%+6d R=%+6d  interval L=%5u R=%5u us  glitches=%u "
+                         "edges=%u",
+                  (unsigned) i, (unsigned) l, (unsigned) r,
+                  (int) (int16_t) (l - l0), (int) (int16_t) (r - r0),
+                  (unsigned) ((uint32_t) drv_encoder_interval_l_32us() *
+                              S2_T_US_PER_INTERVAL_UNIT),
+                  (unsigned) ((uint32_t) drv_encoder_interval_r_32us() *
+                              S2_T_US_PER_INTERVAL_UNIT),
+                  (unsigned) drv_encoder_glitches(),
+                  (unsigned) drv_encoder_edge_count());
+        tm_printf((UB *) "  | speed %u/%u cm/s dist %d mm %s%s\n",
+                  (unsigned) ms.speed_l_cm_s, (unsigned) ms.speed_r_cm_s,
+                  (int) ms.distance_mm, s2t_state_name[ms.motion_state & 7U],
+                  app_stop_latched() ? " LATCHED" : "");
+    }
+}
+#endif
 
 static void
 sim_in (motion_in_t * p_in)
@@ -195,6 +251,10 @@ subsystem2_test (void)
 #else
     tm_printf((UB *) "[TEST] S2-U06 NOT RUN (APP_CAL_MOTION_ARMED = 0; see "
                      "HV-3/HV-4)\n");
+#endif
+
+#if S2_T_LIVE_LOOP
+    s2t_live_loop(); /* S2-U07: never returns */
 #endif
 
     TEST_SUMMARY("subsystem2");

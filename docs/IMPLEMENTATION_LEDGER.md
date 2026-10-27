@@ -543,6 +543,29 @@ The test no longer writes into `g_line_state` / `g_imu_state`. Demo image
 byte count unchanged (hook compiled out). TEST image +372 B text. Awaiting
 one re-run on the car.
 
+### Demo-image telemetry, decoded (27 Oct, Wong Wei Qi)
+
+`tools/telem_decode.py --mqtt` on the demo image, car on the bench with the
+motors disarmed (`testing/system/logs/2026-10-27_demo_image_telemetry_decoded.txt`):
+snapshots and heartbeats at the right cadence with unbroken seq, ONLINE,
+86 events dropped while offline (expected). Findings:
+
+1. **Bug (fixed, D-26):** `cause=COLLISION` with `faults=[]`. `ImuTask`
+   cleared IMU_FAULT in the cycle that set it because the latch flag it
+   tested was sampled before the core step. `task_imu.c` now re-reads the
+   latch byte and keeps the fault while the raising cycle's `collision`
+   output is set. Demo image size unchanged; host 56/56; gate PASS; not yet
+   re-run on the car.
+2. **Team question (D-27):** collision detection is armed by encoder motion,
+   so a wheel turned by hand arms it and a knock latches S7 during handling.
+3. **HV-3 evidence:** 1189 encoder edges in 200 ms from a hand-moved wheel,
+   speed saturating at 127 cm/s on nudges: `APP_CAL_TICKS_PER_REV 20` does
+   not describe the real encoder. S2-U07 live encoder loop added (TEST only,
+   off) so the team can count edges per revolution.
+4. The gated scanner publishes the fail-closed profile (`range=511`,
+   `action=STOP`); the Phase 7 controller must act only on a profile it
+   requested and that `EVT_SCAN_DONE` reported, never on this default.
+
 ### Next executable step
 
 PHASE 7, step 2: `app_program/shared/vehicle_controller.c` S2 FOLLOW_LINE,

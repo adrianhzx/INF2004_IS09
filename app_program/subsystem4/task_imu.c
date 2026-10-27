@@ -144,7 +144,7 @@ read_motion (imu_in_t * p_in)
 }
 
 static void
-publish (imu_in_t const * p_in, imu_out_t const * p_out)
+publish (imu_out_t const * p_out)
 {
     uint32_t word = 0U;
     UINT     evt  = 0U;
@@ -185,9 +185,12 @@ publish (imu_in_t const * p_in, imu_out_t const * p_out)
                            (uint16_t) p_out->state.motion_class);
     }
 
-    /* IMU_FAULT: sensor unhealthy, or a collision until the latch is released
-     */
-    if (g_s4_coll_fault && !p_in->stop_latched)
+    /* IMU_FAULT: sensor unhealthy, or a collision until the latch is released.
+       p_in->stop_latched was sampled BEFORE the core step, so in the cycle
+       that raised the collision it still reads false; re-read the latch byte
+       here, or the fault would be set and cleared within one cycle (seen on
+       the 27 Oct telemetry: cause=COLLISION with an empty fault mask). */
+    if (g_s4_coll_fault && !p_out->collision && !app_stop_latched())
     {
         g_s4_coll_fault = false;
     }
@@ -217,7 +220,7 @@ s4_imu_cycle (void)
     read_sensor(&in);
     read_motion(&in);
     imu_core_step(&g_s4_core, &in, &out);
-    publish(&in, &out);
+    publish(&out);
 
     g_s4_cycles++;
     {

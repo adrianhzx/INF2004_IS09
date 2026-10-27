@@ -29,3 +29,19 @@ is pre-filled as passed.
 refuses to leave S1 and posts `CMD_REJECTED`, and the Phase 2 motion task
 rejects every drive command while the switch is 0. Setting it to 1 is a
 team decision recorded in this file (HV-3, HV-4).
+
+## Field observation feeding HV-3 (27 Oct 2026, telemetry while handling the car)
+
+With the motors disarmed and a wheel moved by hand, the snapshot showed the
+right encoder word moving 579 -> 65390 (1189 edges, reverse) within one
+200 ms snapshot period and the run distance jumping by -3.7 m, and the
+measured speed saturating at 127 cm/s on small nudges. With the provisional
+`APP_CAL_TICKS_PER_REV 20` one edge is 10.2 mm, so either the real encoder
+delivers far more edges per revolution (a hall quadrature encoder on the
+motor shaft, before the gearbox, gives hundreds to thousands) or the inputs
+bounce. Both are exactly what HV-3 measures: run the TEST image with
+`S2_T_LIVE_LOOP 1` in `subsystem2_test.c` (S2-U07), turn each wheel one full
+revolution by hand, read the tick delta and the glitch counter, then set
+`APP_CAL_TICKS_PER_REV` (and check `APP_CAL_ENC_GLITCH_MAX`) before HV-4.
+Until then the published speed and distance are not in physical units.
+

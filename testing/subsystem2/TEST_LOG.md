@@ -35,6 +35,7 @@ proves the logic and the sign conventions, not the physical gains.
 | Date | Test ID | Commit | Tester | Result | Log / evidence | Notes |
 |---|---|---|---|---|---|---|
 | 2026-10-27 | S2-U01..U05 (two runs) | `57a1be1` tree (converged TEST image) | Wong Wei Qi | PASS 12/0, S2-U06 NOT RUN (disarmed) | `testing/system/logs/2026-10-27_test_image_full_run_converged.txt` | First recorded on-target run of the motion subsystem: compares 0 after init, 20 kHz wrap, task 100 cycles/s, longest cycle 110 / 125 us, no encoder edges or glitches at rest, MOVE rejected while disarmed, reverse MOVE path and latch handling. Motors were not energised (`APP_CAL_MOTION_ARMED 0`); HV-3/HV-4 still unsigned. |
+| 2026-10-27 | demo-image telemetry (field) | `57a1be1` tree | Wong Wei Qi | observation | `testing/system/logs/2026-10-27_demo_image_telemetry_decoded.txt` | Hand-moved wheel: encoder word 579 -> 65390 in one 200 ms period, speed saturating at 127 cm/s on nudges, distance jumps of metres. Consistent with `APP_CAL_TICKS_PER_REV 20` being far from the real encoder (or bouncing inputs). S2-U07 live encoder loop added for the HV-3 count; see docs/HARDWARE_VALIDATION.md. |
 
 
 ## Bench procedures owned by this subsystem (docs/HARDWARE_VALIDATION.md)
