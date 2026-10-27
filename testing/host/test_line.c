@@ -74,19 +74,20 @@ test_line_basic (void)
     line_core_step(&core, 2000U, 2000U, &out);
     CHECK("H-LN-07a", out.contrast_ok,
           "boot references usable before calibration");
-    for (i = 0U; i < 1200U; i++)
+    /* (3000 - 1000 - 400) / DECAY steps x DECAY_CYCLES cycles to collapse */
+    for (i = 0U; i < 100000U; i++)
     {
         line_core_step(&core, 2000U, 2000U, &out);
     }
     CHECK("H-LN-07b", !out.contrast_ok,
-          "flat signal for 12 s -> IR_CONTRAST lost");
+          "flat signal for ~15 min -> IR_CONTRAST lost (slow relax, D-34)");
     /* D-32: while the contrast is insufficient, noise must not become a
        line: error 0, steer 0, no dark, LOST reported once, no JUNCTION */
     {
         bool quiet = true;
         bool lost  = false;
         line_core_init(&core);
-        for (i = 0U; i < 1200U; i++)
+        for (i = 0U; i < 100000U; i++)
         {
             line_core_step(&core, 2000U, 2000U, &out);
             lost = lost || out.evt_lost;
@@ -109,6 +110,25 @@ test_line_basic (void)
     line_core_step(&core, BLACK, BLACK, &out);
     CHECK("H-LN-08", out.contrast_ok,
           "references expand immediately when both shades are seen");
+
+    /* D-34: a car parked on the line (left white, centre black) and driven
+       down a lengthy straight keeps its calibration: the shared pair is fed by
+       both channels, so neither forgets the shade it never sees */
+    line_core_init(&core);
+    for (i = 0U; i < 100000U; i++)
+    {
+        line_core_step(&core, 2000U, 2000U, &out); /* collapse first */
+    }
+    line_core_step(&core, WHITE, BLACK, &out);
+    CHECK("H-LN-08b", out.contrast_ok,
+          "one sensor white + one black calibrates both channels at once");
+    for (i = 0U; i < 100000U; i++)
+    {
+        line_core_step(&core, WHITE, BLACK, &out);
+    }
+    CHECK("H-LN-08c",
+          out.contrast_ok && (out.state.line_error == 100) && out.state.on_line,
+          "15 min on a straight line: still calibrated, error +100, on line");
 
     /* on line: centre dark, left on the edge (~27 %) -> error ~ +73 */
     calibrated_core(&core);

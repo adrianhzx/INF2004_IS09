@@ -125,10 +125,19 @@
 #define APP_CAL_IR_DARK_IS_HIGH                                                \
     1 /* 1: black line reads a HIGHER ADC value [TBC, HV-10] */
 #define APP_CAL_LINE_DARK_PCT 50U /* normalised >= this = dark [TBC] */
-#define APP_CAL_LINE_KP_Q8 256U   /* steer = Kp*error + Kd*d(error) [TBC] */
+/* Tracking setpoint subtracted from (n_centre - n_left) [TBC, HV-10, A7]:
+   0  = the line runs midway between the two sensors, both partly on it
+        (needs a sensor pitch of about the 18 mm line width or less);
+   50 = left-edge following: left sensor half on the line, centre sensor
+        fully on it (wider pitch). The car is "centred" at error 0. */
+#define APP_CAL_LINE_ERROR_SETPOINT 0
+#define APP_CAL_LINE_KP_Q8 256U /* steer = Kp*error + Kd*d(error) [TBC] */
 #define APP_CAL_LINE_KD_Q8 64U
 #define APP_CAL_LINE_CAL_DECAY                                                 \
-    1U /* running min/max relax by this many LSB per cycle */
+    1U /* running min/max relax by this many LSB per decay step */
+#define APP_CAL_LINE_CAL_DECAY_CYCLES                                          \
+    50U /* one decay step every this many 10 ms cycles (D-34: 2 LSB/s) [TBC]   \
+         */
 #define APP_CAL_LINE_INIT_WHITE                                                \
     1000U /* default references until calibrated [TBC] */
 #define APP_CAL_LINE_INIT_BLACK 3000U

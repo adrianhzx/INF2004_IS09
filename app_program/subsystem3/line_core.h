@@ -5,8 +5,14 @@
  *         events, continuous on_line. Owner: Buddy 3 (Xu Zhiqiang).
  *         No kernel or hardware calls; one call per 10 ms sample pair.
  *
- *  Sensors (A7): LEFT and CENTRE over the line. Normalised darkness
- *  n = 0 (white reference) .. 100 (black reference) per channel.
+ *  Sensors (A7): LEFT and CENTRE over the line, the line running between
+ *  them so each sees one edge. Normalised darkness n = 0 (white reference)
+ *  .. 100 (black reference). D-34: the black/white references are ONE pair
+ *  learned from both channels together (the two modules are alike and a few
+ *  cm apart), so a car placed on the line calibrates at once - one sensor
+ *  sees white, the other black - and a lengthy straight does not let a
+ *  channel that only ever sees one shade forget the other. They relax
+ *  slowly (APP_CAL_LINE_CAL_DECAY per APP_CAL_LINE_CAL_DECAY_CYCLES).
  *  line_error = n_centre - n_left, clamped to +-100: when the line drifts to
  *  the RIGHT the left sensor goes lighter and the centre darker, so the error
  *  is positive = "line right of centre" (app_data.h), and FOLLOW drives the
@@ -24,11 +30,13 @@
 
 typedef struct
 {
-    uint16_t min_l; /* running references (raw ADC) */
+    uint16_t min_l; /* running references (raw ADC); D-34: one shared pair
+                       fed by both channels, mirrored into _c */
     uint16_t max_l;
     uint16_t min_c;
     uint16_t max_c;
-    bool     calibrated; /* span >= APP_CAL_IR_MIN_CONTRAST on both */
+    uint16_t decay_cycles; /* cycles since the references last relaxed */
+    bool     calibrated;   /* span >= APP_CAL_IR_MIN_CONTRAST on both */
     bool     on_line;
     bool     lost_reported;
     bool     junction_armed; /* re-arms after leaving both-dark */

@@ -57,6 +57,7 @@ line_core_init (line_core_t * p_core)
     p_core->max_l          = (uint16_t) APP_CAL_LINE_INIT_BLACK;
     p_core->min_c          = (uint16_t) APP_CAL_LINE_INIT_WHITE;
     p_core->max_c          = (uint16_t) APP_CAL_LINE_INIT_BLACK;
+    p_core->decay_cycles   = 0U;
     p_core->calibrated     = false;
     p_core->on_line        = false;
     p_core->lost_reported  = false;
@@ -72,28 +73,28 @@ line_core_set_references (line_core_t * p_core, uint16_t white_l,
                           uint16_t black_l, uint16_t white_c, uint16_t black_c)
 {
 #if APP_CAL_IR_DARK_IS_HIGH
-    p_core->min_l = white_l;
-    p_core->max_l = black_l;
-    p_core->min_c = white_c;
-    p_core->max_c = black_c;
+    p_core->min_l = (white_l < white_c) ? white_l : white_c;
+    p_core->max_l = (black_l > black_c) ? black_l : black_c;
 #else
-    p_core->min_l = black_l;
-    p_core->max_l = white_l;
-    p_core->min_c = black_c;
-    p_core->max_c = white_c;
+    p_core->min_l = (black_l < black_c) ? black_l : black_c;
+    p_core->max_l = (white_l > white_c) ? white_l : white_c;
 #endif
+    p_core->min_c      = p_core->min_l; /* D-34: one shared pair */
+    p_core->max_c      = p_core->max_l;
     p_core->calibrated = true;
 }
 
-/** Running references: expand immediately, relax slowly (bounded). */
+/** Running references: expand immediately, relax slowly (bounded) on a
+ *  decay step only. */
 static void
-track (uint16_t raw, uint16_t * p_min, uint16_t * p_max)
+track (uint16_t raw, uint16_t * p_min, uint16_t * p_max, bool relax)
 {
     if (raw < *p_min)
     {
         *p_min = raw;
     }
-    else if (*p_min < (uint16_t) (APP_ADC_MAX - APP_CAL_LINE_CAL_DECAY))
+    else if (relax &&
+             (*p_min < (uint16_t) (APP_ADC_MAX - APP_CAL_LINE_CAL_DECAY)))
     {
         *p_min = (uint16_t) (*p_min + APP_CAL_LINE_CAL_DECAY);
     }
@@ -105,7 +106,7 @@ track (uint16_t raw, uint16_t * p_min, uint16_t * p_max)
     {
         *p_max = raw;
     }
-    else if (*p_max > (uint16_t) APP_CAL_LINE_CAL_DECAY)
+    else if (relax && (*p_max > (uint16_t) APP_CAL_LINE_CAL_DECAY))
     {
         *p_max = (uint16_t) (*p_max - APP_CAL_LINE_CAL_DECAY);
     }
@@ -131,10 +132,20 @@ static void
 normalise_pair (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
                 uint8_t * p_n_l, uint8_t * p_n_c)
 {
-    track(adc_left, &p_core->min_l, &p_core->max_l);
-    track(adc_centre, &p_core->min_c, &p_core->max_c);
-    p_core->calibrated = span_ok(p_core->min_l, p_core->max_l) &&
-                         span_ok(p_core->min_c, p_core->max_c);
+    bool relax = false;
+
+    p_core->decay_cycles++;
+    if (p_core->decay_cycles >= APP_CAL_LINE_CAL_DECAY_CYCLES)
+    {
+        p_core->decay_cycles = 0U;
+        relax                = true;
+    }
+    /* D-34: one shared reference pair, fed by both channels */
+    track(adc_left, &p_core->min_l, &p_core->max_l, relax);
+    track(adc_centre, &p_core->min_l, &p_core->max_l, false);
+    p_core->min_c      = p_core->min_l;
+    p_core->max_c      = p_core->max_l;
+    p_core->calibrated = span_ok(p_core->min_l, p_core->max_l);
     if (p_core->calibrated)
     {
         *p_n_l = line_core_normalise(adc_left, p_core->min_l, p_core->max_l);
@@ -166,8 +177,9 @@ line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
     dark_l = (n_l >= (uint8_t) APP_CAL_LINE_DARK_PCT);
     dark_c = (n_c >= (uint8_t) APP_CAL_LINE_DARK_PCT);
 
-    error = clamp_i32((int32_t) n_c - (int32_t) n_l, APP_LINE_ERROR_MIN,
-                      APP_LINE_ERROR_MAX);
+    error = clamp_i32((int32_t) n_c - (int32_t) n_l -
+                          (int32_t) APP_CAL_LINE_ERROR_SETPOINT,
+                      APP_LINE_ERROR_MIN, APP_LINE_ERROR_MAX);
     steer = (((int32_t) APP_CAL_LINE_KP_Q8 * error) +
              ((int32_t) APP_CAL_LINE_KD_Q8 *
               (error - (int32_t) p_core->prev_error))) /

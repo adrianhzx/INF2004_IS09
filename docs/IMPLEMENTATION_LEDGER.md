@@ -672,3 +672,15 @@ polarity is fixed in `app_cal.h` instead of by rewiring. All four default
 to 0; the S2-U07 loop and INT-07 on blocks decide them. Gate PASS, host
 61/61 motion, builds 0 warnings.
 
+### Addendum 27 Oct evening: third armed run (D-34)
+
+On a straight black line the car lost `IR_CONTRAST` within seconds: the
+per-channel references relaxed at 1 LSB per cycle and a sensor that sat on
+one shade forgot the other. Fixed with one shared reference pair fed by
+both channels and a 50x slower relax (D-34, H-LN-07b/c, 08b/c; line suite
+117/117), plus `APP_CAL_LINE_ERROR_SETPOINT` for the bracket geometry. The
+right encoder now counts (a jumper had been unplugged); the left still
+counts down while driving: `APP_CAL_ENC_L_REVERSE` or `MOTOR_L_REVERSE`
+to be decided on blocks. Ticks/rev still unmeasured. Gate PASS, 4
+profiles 0 warnings, host 763/763.
+
