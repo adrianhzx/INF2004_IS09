@@ -75,10 +75,17 @@
 
 /* ---- Speeds and geometry ----------------------------------------------- */
 #define APP_CAL_V_NOM_CM_S 15U /* nominal line-following speed [TBC, HV-3] */
-#define APP_CAL_V_REVERSE_CM_S 12U  /* [TBC] */
-#define APP_CAL_V_SEARCH_CM_S 10U   /* [TBC] */
-#define APP_CAL_V_TURN_CM_S 15U     /* [TBC] */
-#define APP_CAL_WHEEL_DIA_MM 65U    /* [TBC, HV-3] */
+#define APP_CAL_V_REVERSE_CM_S 12U /* [TBC] */
+#define APP_CAL_V_SEARCH_CM_S 10U  /* [TBC] */
+#define APP_CAL_V_TURN_CM_S 15U    /* [TBC] */
+#define APP_CAL_WHEEL_DIA_MM 65U   /* 65 mm measured 27 Oct (HV-3) */
+/* Polarity switches (HV-3/HV-4): 1 inverts that motor's drive direction or
+   that encoder's count direction in software. Set so that FOLLOW/MOVE(+)
+   turns both wheels in the car's forward direction AND both counts rise. */
+#define APP_CAL_MOTOR_L_REVERSE 0   /* [TBC, HV-4] */
+#define APP_CAL_MOTOR_R_REVERSE 0   /* [TBC, HV-4] */
+#define APP_CAL_ENC_L_REVERSE 0     /* [TBC, HV-3] */
+#define APP_CAL_ENC_R_REVERSE 0     /* [TBC, HV-3] */
 #define APP_CAL_TRACK_WIDTH_MM 140U /* wheel-to-wheel [TBC, HV-3] */
 #define APP_CAL_TICKS_PER_REV                                                  \
     20U /* full quadrature edges per wheel rev [TBC, HV-3] */

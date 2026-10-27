@@ -4,6 +4,8 @@
 
 #include "drv_motor.h"
 
+#include "../shared/app_cal.h"
+
 #include "../shared/app_hw.h"
 #include "../shared/app_port.h"
 
@@ -62,6 +64,18 @@ drv_motor_set (drv_motor_id_t motor, int8_t pct)
         return;
     }
     p_m = &g_motor_pins[motor];
+#if APP_CAL_MOTOR_L_REVERSE
+    if (DRV_MOTOR_LEFT == motor)
+    {
+        value = -value; /* HV-4 polarity fix in software */
+    }
+#endif
+#if APP_CAL_MOTOR_R_REVERSE
+    if (DRV_MOTOR_RIGHT == motor)
+    {
+        value = -value;
+    }
+#endif
     if (value > DRV_MOTOR_PCT_MAX)
     {
         value = DRV_MOTOR_PCT_MAX;

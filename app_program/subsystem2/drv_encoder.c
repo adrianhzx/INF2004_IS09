@@ -4,6 +4,8 @@
 
 #include "drv_encoder.h"
 
+#include "../shared/app_cal.h"
+
 #include "../shared/app_gpio_irq.h"
 #include "../shared/app_hw.h"
 #include "../shared/app_motion.h"
@@ -66,12 +68,14 @@ read_ab (enc_wheel_t const * p_w, uint32_t gpio_in)
 
 /* Task-independent context: one GPIO_IN read, one lookup, a few stores. */
 static void
-wheel_isr (enc_wheel_t * p_w, volatile uint16_t * p_ticks, uint32_t stamp_us)
+wheel_isr (enc_wheel_t * p_w, volatile uint16_t * p_ticks, uint32_t stamp_us,
+           bool reverse)
 {
     uint32_t const gpio_in = in_w(GPIO_IN);
     uint8_t const  ab      = read_ab(p_w, gpio_in);
     bool           glitch  = false;
-    int8_t const   step    = drv_encoder_decode(p_w->prev_ab, ab, &glitch);
+    int8_t const   decoded = drv_encoder_decode(p_w->prev_ab, ab, &glitch);
+    int8_t const   step    = reverse ? (int8_t) -decoded : decoded;
 
     g_enc_edge_count++;
     p_w->prev_ab = ab;
@@ -102,7 +106,8 @@ enc_isr_l (uint32_t pin, uint32_t events, uint32_t stamp_us)
 {
     (void) pin;
     (void) events;
-    wheel_isr(&g_wheel_l, &g_enc_ticks_l, stamp_us);
+    wheel_isr(&g_wheel_l, &g_enc_ticks_l, stamp_us,
+              (0 != APP_CAL_ENC_L_REVERSE)); /* HV-3 polarity */
 }
 
 static void
@@ -110,7 +115,8 @@ enc_isr_r (uint32_t pin, uint32_t events, uint32_t stamp_us)
 {
     (void) pin;
     (void) events;
-    wheel_isr(&g_wheel_r, &g_enc_ticks_r, stamp_us);
+    wheel_isr(&g_wheel_r, &g_enc_ticks_r, stamp_us,
+              (0 != APP_CAL_ENC_R_REVERSE));
 }
 
 bool

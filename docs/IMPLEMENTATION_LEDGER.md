@@ -662,3 +662,13 @@ until HV-3/HV-4 are signed. Host 831/831, gate PASS, 4 profiles 0
 warnings. Controller behaviour in the run (S2 -> LOST -> S5 -> S7 with the
 right cause) matched the host model.
 
+### Addendum 27 Oct evening: second armed run, polarity switches
+
+Second run: left encoder counting down while driving, right still silent,
+car pivoted left and latched LINE_SEARCH_TIMEOUT (started off the line,
+search cascaded with ticks/rev 20). Added `APP_CAL_MOTOR_L/R_REVERSE` and
+`APP_CAL_ENC_L/R_REVERSE` (drv_motor.c / drv_encoder.c) so HV-3/HV-4
+polarity is fixed in `app_cal.h` instead of by rewiring. All four default
+to 0; the S2-U07 loop and INT-07 on blocks decide them. Gate PASS, host
+61/61 motion, builds 0 warnings.
+
