@@ -209,6 +209,27 @@ test_line_events (void)
     CHECK("H-LN-18", 2U == junctions,
           "junction re-arms after leaving both-dark");
 
+    /* D-35 dead band: both sensors on the line's edges (A7 straddle, ~50 %
+       each) for 2 s is neither a junction nor a loss, error 0 */
+    {
+        uint32_t evts = 0U;
+        bool     on   = true;
+        bool     zero = true;
+        for (i = 0U; i < 200U; i++)
+        {
+            /* jitter 40..60 % around the edge */
+            uint16_t const g = (0U == (i % 3U)) ? 1800U : 2200U;
+            line_core_step(&core, g, (0U == (i % 3U)) ? 2200U : 1800U, &out);
+            evts += (out.evt_junction || out.evt_lost) ? 1U : 0U;
+            on   = on && out.state.on_line;
+            zero = zero && (out.state.line_error >= -25) &&
+                   (out.state.line_error <= 25);
+        }
+        CHECK("H-LN-18b", (0U == evts) && on && zero,
+              "both sensors on the edges for 2 s: on line, no JUNCTION, no "
+              "LOST, small error");
+    }
+
     /* both light: LOST after T_LOST (100 ms = 10 cycles), on_line false, FOUND
      * after */
     for (i = 0U; i < 25U; i++)

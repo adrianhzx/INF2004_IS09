@@ -162,20 +162,24 @@ void
 line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
                 line_out_t * p_out)
 {
-    uint8_t n_l    = 0U;
-    uint8_t n_c    = 0U;
-    bool    dark_l = false;
-    bool    dark_c = false;
-    int32_t error  = 0;
-    int32_t steer  = 0;
+    uint8_t n_l     = 0U;
+    uint8_t n_c     = 0U;
+    bool    dark_l  = false;
+    bool    dark_c  = false;
+    bool    light_l = false;
+    bool    light_c = false;
+    int32_t error   = 0;
+    int32_t steer   = 0;
 
     adc_left = (uint16_t) ((adc_left > APP_ADC_MAX) ? APP_ADC_MAX : adc_left);
     adc_centre =
         (uint16_t) ((adc_centre > APP_ADC_MAX) ? APP_ADC_MAX : adc_centre);
 
     normalise_pair(p_core, adc_left, adc_centre, &n_l, &n_c);
-    dark_l = (n_l >= (uint8_t) APP_CAL_LINE_DARK_PCT);
-    dark_c = (n_c >= (uint8_t) APP_CAL_LINE_DARK_PCT);
+    dark_l  = (n_l >= (uint8_t) APP_CAL_LINE_DARK_PCT);
+    dark_c  = (n_c >= (uint8_t) APP_CAL_LINE_DARK_PCT);
+    light_l = (n_l <= (uint8_t) APP_CAL_LINE_LIGHT_PCT);
+    light_c = (n_c <= (uint8_t) APP_CAL_LINE_LIGHT_PCT);
 
     error = clamp_i32((int32_t) n_c - (int32_t) n_l -
                           (int32_t) APP_CAL_LINE_ERROR_SETPOINT,
@@ -212,8 +216,9 @@ line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
         p_core->junction_armed = true;
     }
 
-    /* both light for T_LOST -> LOST (on_line false); any dark after -> FOUND */
-    if (!dark_l && !dark_c)
+    /* both light for T_LOST -> LOST (on_line false); a sensor on the line or
+       on an edge (above LIGHT_PCT) afterwards -> FOUND (D-35 dead band) */
+    if (light_l && light_c)
     {
         if (p_core->light_cycles < LC_CYC_SAT)
         {

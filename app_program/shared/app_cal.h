@@ -124,7 +124,12 @@
 #define APP_CAL_IR_MIN_CONTRAST 400U /* min (black - white) ADC span [TBC] */
 #define APP_CAL_IR_DARK_IS_HIGH                                                \
     1 /* 1: black line reads a HIGHER ADC value [TBC, HV-10] */
-#define APP_CAL_LINE_DARK_PCT 50U /* normalised >= this = dark [TBC] */
+/* Event thresholds (D-35): a sensor is DARK at or above DARK_PCT and LIGHT
+   at or below LIGHT_PCT; in between it is "on an edge", which counts as on
+   the line and is neither a junction nor a loss. With the two sensors one
+   line width apart (18 mm, A7) a centred car reads both near 50. */
+#define APP_CAL_LINE_DARK_PCT 70U  /* normalised >= this = dark [TBC] */
+#define APP_CAL_LINE_LIGHT_PCT 30U /* normalised <= this = light [TBC] */
 /* Tracking setpoint subtracted from (n_centre - n_left) [TBC, HV-10, A7]:
    0  = the line runs midway between the two sensors, both partly on it
         (needs a sensor pitch of about the 18 mm line width or less);

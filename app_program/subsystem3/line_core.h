@@ -13,11 +13,14 @@
  *  sees white, the other black - and a lengthy straight does not let a
  *  channel that only ever sees one shade forget the other. They relax
  *  slowly (APP_CAL_LINE_CAL_DECAY per APP_CAL_LINE_CAL_DECAY_CYCLES).
- *  line_error = n_centre - n_left, clamped to +-100: when the line drifts to
- *  the RIGHT the left sensor goes lighter and the centre darker, so the error
- *  is positive = "line right of centre" (app_data.h), and FOLLOW drives the
- *  left wheel harder (motion_core). HV-10 (hand sweep, A7) confirms both the
- *  ADC polarity and this sign on the real bracket.
+ *  D-35: DARK is n >= APP_CAL_LINE_DARK_PCT, LIGHT is n <=
+ * APP_CAL_LINE_LIGHT_PCT; between them a sensor is on an edge, which is on the
+ * line and neither a junction (both DARK) nor a loss (both LIGHT). line_error =
+ * n_centre - n_left, clamped to +-100: when the line drifts to the RIGHT the
+ * left sensor goes lighter and the centre darker, so the error is positive =
+ * "line right of centre" (app_data.h), and FOLLOW drives the left wheel harder
+ * (motion_core). HV-10 (hand sweep, A7) confirms both the ADC polarity and this
+ * sign on the real bracket.
  */
 
 #ifndef LINE_CORE_H

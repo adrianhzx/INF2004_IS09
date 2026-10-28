@@ -684,3 +684,16 @@ counts down while driving: `APP_CAL_ENC_L_REVERSE` or `MOTOR_L_REVERSE`
 to be decided on blocks. Ticks/rev still unmeasured. Gate PASS, 4
 profiles 0 warnings, host 763/763.
 
+### Addendum 28 Oct: fourth armed run, D-35 dead band
+
+Straight-line run with the two IR modules 18 mm apart, both over white when
+centred: the pair is "both light" -> LOST -> search -> S7, exactly the
+ambiguity a two-sensor straddle has at a single 50 % threshold. `line_core`
+now uses LIGHT <= 30 %, DARK >= 70 %, and treats the band between as "on an
+edge" (on the line, no event). The bench must set the sensors so a centred
+car reads both in that band (half on the line each; S3-U07 shows `norm L/C`).
+Right encoder fixed by the user (a jumper); left encoder still counts down
+while driving -> `APP_CAL_ENC_L_REVERSE 1` after the hand-turn check. Ticks
+per revolution still not measured. Line suite 118/118, gate PASS, 4 profiles
+0 warnings.
+
