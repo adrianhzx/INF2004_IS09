@@ -709,3 +709,14 @@ PASS, 4 profiles 0 warnings. Still open on the car: ticks per revolution
 (must be measured), `APP_CAL_ENC_L_REVERSE 1` (left count falls when
 pushed forward), and the car is running an image from before D-33..D-35.
 
+### Addendum 28 Oct: console "car:" line (track debugging without Wi-Fi)
+
+On the track nothing reached the broker (Wi-Fi/broker not yet diagnosed:
+the serial log was not captured). The demo image now prints, every
+`APP_CAL_CONSOLE_CAR_MS` (500 ms, 0 = off), one `car:` line on the USB
+console from the telemetry task with the mission state, motion state,
+stop cause, fault mask, pending command, speeds, encoder counts, distance,
+line error, on_line, raw/normalised IR readings, barcode and latch. Same
+blackboard words as the snapshot; not in the TEST image. Builds 0
+warnings, gate PASS.
+

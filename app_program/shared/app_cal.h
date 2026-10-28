@@ -167,6 +167,11 @@
 #define APP_CAL_R_SWEPT_CM 12U     /* [TBC] */
 #define APP_CAL_D_REVERSE_MM 150U  /* [TBC] */
 #define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
+/* ---- Console diagnostics (demo image only) ----------------------------- */
+#define APP_CAL_CONSOLE_CAR_MS                                                 \
+    500U /* "car:" line on the USB console every this many ms; 0 = off. Works  \
+            without Wi-Fi so the track can be debugged from the serial port */
+
 /* ---- Mission controller (Phase 7, VehicleControllerTask) --------------- */
 #define APP_CAL_D_JUNC_CLEAR_MM                                                \
     80U /* STRAIGHT or no command: MOVE this far across a junction [TBC] */

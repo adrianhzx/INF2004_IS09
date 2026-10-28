@@ -22,7 +22,11 @@
 
 #include "../shared/app_barcode.h"
 #include "../shared/app_hw.h"
+#include "../shared/app_line.h"
+#include "../shared/app_motion.h"
+#include "../shared/app_cal.h"
 #include "../shared/app_safety.h"
+#include "../subsystem3/subsystem3.h"
 #include "../subsystem5/subsystem5.h"
 #include "s1_bridge.h"
 
@@ -55,6 +59,8 @@ static s1_cadence_t g_s1_hb_cad;
 #if !APP_TEST
 static s1_cadence_t g_s1_status_cad;
 static bool         g_s1_status_started = false;
+static s1_cadence_t g_s1_car_cad;
+static bool         g_s1_car_started = false;
 #endif
 static app_conn_state_t g_s1_conn           = APP_CONN_WIFI_CONNECTING;
 static bool             g_s1_conn_valid     = false;
@@ -483,6 +489,55 @@ s1_status_line (app_conn_state_t state, uint32_t now_ms)
         (unsigned) mqtt_utk_bridge_stalls(), (unsigned) app_ipc_telem_dropped(),
         (unsigned) g_s1_stats.cmd_ok, (unsigned) g_s1_stats.cmd_rejected);
 }
+
+#if APP_CAL_CONSOLE_CAR_MS
+static char const * const g_s1_sys_names[] = {
+    "S0",        "S1",        "S2_FOLLOW", "S3_NAV",
+    "S4_BYPASS", "S5_SEARCH", "S6",        "S7_STOP"};
+static char const * const g_s1_mot_names[] = {
+    "BRAKED", "FOLLOW", "MOVE", "TURN", "LATCHED", "?", "?", "?"};
+
+/** The mission in one console line, independent of the radio (28 Oct: on
+ *  the track nothing reached the broker and the car could not be debugged).
+ *  Same blackboard words as the snapshot, plus the normalised IR readings. */
+static void
+s1_car_line (uint32_t now_ms)
+{
+    app_mission_status_t ms;
+    app_motion_status_t  mo;
+    app_line_state_t     ls;
+    uint16_t             raw_l = 0U;
+    uint16_t             raw_c = 0U;
+    uint8_t              n_l   = 0U;
+    uint8_t              n_c   = 0U;
+
+    if (!g_s1_car_started)
+    {
+        s1_cadence_start(&g_s1_car_cad, now_ms, APP_CAL_CONSOLE_CAR_MS);
+        g_s1_car_started = true;
+    }
+    if (!s1_cadence_due(&g_s1_car_cad, now_ms))
+    {
+        return;
+    }
+    app_mission_unpack(g_mission_status, &ms);
+    (void) app_motion_read(&mo);
+    app_line_read(&ls);
+    s3_line_raw(&raw_l, &raw_c, &n_l, &n_c);
+    tm_printf((UB *) "car: %s %s cause=%u f=0x%04x pend=%u | v=%u/%u enc=%u/%u "
+                     "d=%d | err=%d on=%u L=%u/%u C=%u/%u bc=%u | latch=%u\n",
+              (UB *) g_s1_sys_names[ms.sys_state & 7U],
+              (UB *) g_s1_mot_names[mo.motion_state & 7U],
+              (unsigned) app_stop_cause_get(), (unsigned) app_fault_get(),
+              (unsigned) ms.pending_cmd, (unsigned) mo.speed_l_cm_s,
+              (unsigned) mo.speed_r_cm_s, (unsigned) g_enc_ticks_l,
+              (unsigned) g_enc_ticks_r, (int) mo.distance_mm,
+              (int) ls.line_error, (unsigned) ls.on_line, (unsigned) raw_l,
+              (unsigned) n_l, (unsigned) raw_c, (unsigned) n_c,
+              (unsigned) app_barcode_result(g_barcode_byte),
+              (unsigned) app_stop_latched());
+}
+#endif
 #endif
 
 /* ---- task
@@ -529,6 +584,9 @@ telemetry_comms_task (INT stacd, void * p_exinf)
         s1_handle_commands(now_ms);
 #if !APP_TEST
         s1_status_line(state, now_ms);
+#if APP_CAL_CONSOLE_CAR_MS
+        s1_car_line(now_ms);
+#endif
 #endif
 
         if (APP_CONN_ONLINE == state)
