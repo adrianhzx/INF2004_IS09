@@ -230,24 +230,32 @@ test_line_events (void)
               "LOST, small error");
     }
 
-    /* both light: LOST after T_LOST (100 ms = 10 cycles), on_line false, FOUND
-     * after */
-    for (i = 0U; i < 25U; i++)
+    /* both light (straddle bracket, D-36): on_line false at once (no sensor
+       sees the line), error 0 = straight ahead, LOST only after T_LOST */
     {
-        line_core_step(&core, WHITE, WHITE, &out);
-        losts += out.evt_lost ? 1U : 0U;
-        if (out.evt_lost)
+        uint32_t const lost_cycles = (APP_CAL_T_LOST_MS + 9U) / 10U;
+        bool           straight    = true;
+        for (i = 0U; i < lost_cycles + 15U; i++)
         {
-            CHECK("H-LN-19", 9U == i, "LOST on the 10th both-light cycle");
+            line_core_step(&core, WHITE, WHITE, &out);
+            losts += out.evt_lost ? 1U : 0U;
+            if (out.evt_lost)
+            {
+                CHECK("H-LN-19", (lost_cycles - 1U) == i,
+                      "LOST on the T_LOST-th both-light cycle");
+            }
+            if (i < (lost_cycles - 1U))
+            {
+                straight = straight && (0 == out.state.line_error) &&
+                           !out.evt_lost && !out.state.on_line;
+            }
         }
-        if (i < 9U)
-        {
-            CHECK("H-LN-20", out.state.on_line,
-                  "on_line stays true before T_LOST");
-        }
+        CHECK("H-LN-20", straight,
+              "before T_LOST: error 0, no LOST, on_line false (no sensor on "
+              "the line)");
+        CHECK("H-LN-21", (1U == losts) && !out.state.on_line,
+              "LOST once, on_line false");
     }
-    CHECK("H-LN-21", (1U == losts) && !out.state.on_line,
-          "LOST once, on_line false");
     line_core_step(&core, WHITE, BLACK, &out);
     founds += out.evt_found ? 1U : 0U;
     CHECK("H-LN-22",

@@ -49,8 +49,13 @@
          */
 #define APP_CAL_T_STALE_MOTION_MS                                              \
     30U /* MotionStatus older than this -> STALE_MOTION [TBC] */
-#define APP_CAL_T_JUNC_MS 60U  /* both sensors dark for T_JUNC [TBC] */
-#define APP_CAL_T_LOST_MS 100U /* both sensors light for T_LOST [TBC] */
+#define APP_CAL_T_JUNC_MS 60U /* both sensors dark for T_JUNC [TBC] */
+/* D-36 straddle bracket (sensors one line width apart, both on WHITE when
+   the car is centred): both light means "straight ahead", not "lost". The
+   line is lost only after both have been light for T_LOST (about 20 cm at
+   V_NOM); until then FOLLOW drives straight with error 0. */
+#define APP_CAL_T_LOST_MS                                                      \
+    1500U /* both sensors light for T_LOST -> LOST [TBC] */
 #define APP_CAL_T_QUIET_MS                                                     \
     150U /* barcode quiet zone (Rev B 150 ms proposed)                         \
           */

@@ -158,6 +158,67 @@ normalise_pair (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
     }
 }
 
+/** Junction / lost / found events and on_line from the two classifications. */
+static void
+events_step (line_core_t * p_core, bool both_dark, bool both_light,
+             line_out_t * p_out)
+{
+    p_out->evt_junction = false;
+    p_out->evt_lost     = false;
+    p_out->evt_found    = false;
+
+    /* both dark for T_JUNC -> JUNCTION once; re-armed after leaving both-dark
+     */
+    if (both_dark)
+    {
+        if (p_core->dark_cycles < LC_CYC_SAT)
+        {
+            p_core->dark_cycles++;
+        }
+        if (p_core->junction_armed &&
+            (p_core->dark_cycles >= LC_MS_TO_CYCLES(APP_CAL_T_JUNC_MS)))
+        {
+            p_core->junction_armed = false;
+            p_out->evt_junction    = true;
+        }
+    }
+    else
+    {
+        p_core->dark_cycles    = 0U;
+        p_core->junction_armed = true;
+    }
+
+    /* D-36: on_line is instantaneous, "a sensor sees the line now" (dark or
+       on an edge). until_line turns need exactly that. With the straddle
+       bracket both sensors are light while the car is centred on a straight,
+       so both-light is NOT a loss: the LOST event comes only after T_LOST of
+       both light, and FOUND when a sensor sees the line again. */
+    if (both_light)
+    {
+        if (p_core->light_cycles < LC_CYC_SAT)
+        {
+            p_core->light_cycles++;
+        }
+        if ((p_core->light_cycles >= LC_MS_TO_CYCLES(APP_CAL_T_LOST_MS)) &&
+            !p_core->lost_reported)
+        {
+            p_core->lost_reported = true;
+            p_out->evt_lost       = true;
+        }
+        p_core->on_line = false;
+    }
+    else
+    {
+        p_core->light_cycles = 0U;
+        if (p_core->lost_reported)
+        {
+            p_core->lost_reported = false;
+            p_out->evt_found      = true;
+        }
+        p_core->on_line = true;
+    }
+}
+
 void
 line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
                 line_out_t * p_out)
@@ -191,59 +252,7 @@ line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
     steer = clamp_i32(steer, APP_LINE_ERROR_MIN, APP_LINE_ERROR_MAX);
     p_core->prev_error = (int16_t) error;
 
-    p_out->evt_junction = false;
-    p_out->evt_lost     = false;
-    p_out->evt_found    = false;
-
-    /* both dark for T_JUNC -> JUNCTION once; re-armed after leaving both-dark
-     */
-    if (dark_l && dark_c)
-    {
-        if (p_core->dark_cycles < LC_CYC_SAT)
-        {
-            p_core->dark_cycles++;
-        }
-        if (p_core->junction_armed &&
-            (p_core->dark_cycles >= LC_MS_TO_CYCLES(APP_CAL_T_JUNC_MS)))
-        {
-            p_core->junction_armed = false;
-            p_out->evt_junction    = true;
-        }
-    }
-    else
-    {
-        p_core->dark_cycles    = 0U;
-        p_core->junction_armed = true;
-    }
-
-    /* both light for T_LOST -> LOST (on_line false); a sensor on the line or
-       on an edge (above LIGHT_PCT) afterwards -> FOUND (D-35 dead band) */
-    if (light_l && light_c)
-    {
-        if (p_core->light_cycles < LC_CYC_SAT)
-        {
-            p_core->light_cycles++;
-        }
-        if (p_core->light_cycles >= LC_MS_TO_CYCLES(APP_CAL_T_LOST_MS))
-        {
-            if (!p_core->lost_reported)
-            {
-                p_core->lost_reported = true;
-                p_out->evt_lost       = true;
-            }
-            p_core->on_line = false;
-        }
-    }
-    else
-    {
-        p_core->light_cycles = 0U;
-        if (p_core->lost_reported)
-        {
-            p_core->lost_reported = false;
-            p_out->evt_found      = true;
-        }
-        p_core->on_line = true;
-    }
+    events_step(p_core, dark_l && dark_c, light_l && light_c, p_out);
 
     p_core->seq = (uint8_t) ((p_core->seq + 1U) & LC_SEQ_MASK);
 

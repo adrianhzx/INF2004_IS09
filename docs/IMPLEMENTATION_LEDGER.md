@@ -697,3 +697,15 @@ while driving -> `APP_CAL_ENC_L_REVERSE 1` after the hand-turn check. Ticks
 per revolution still not measured. Line suite 118/118, gate PASS, 4 profiles
 0 warnings.
 
+### Addendum 28 Oct: straddle bracket semantics (D-36)
+
+The team confirmed the bracket: the two IR modules are one line width
+(18 mm) apart and both read white when the car is centred. The line core
+treated both-light as "lost" after 100 ms, so a straight line could not be
+followed (fifth run). `on_line` is now instantaneous (a sensor sees the
+line), LOST comes only after `APP_CAL_T_LOST_MS` = 1500 ms of both light,
+and FOLLOW drives straight (error 0) in between. Line suite 110/110, gate
+PASS, 4 profiles 0 warnings. Still open on the car: ticks per revolution
+(must be measured), `APP_CAL_ENC_L_REVERSE 1` (left count falls when
+pushed forward), and the car is running an image from before D-33..D-35.
+
