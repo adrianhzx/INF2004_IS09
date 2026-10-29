@@ -57,7 +57,7 @@
    line is lost only after both have been light for T_LOST (about 20 cm at
    V_NOM); until then FOLLOW drives straight with error 0. */
 #define APP_CAL_T_LOST_MS                                                      \
-    1500U /* both sensors light for T_LOST -> LOST [TBC] */
+    2500U /* both sensors light for T_LOST -> LOST [TBC] */
 #define APP_CAL_T_QUIET_MS                                                     \
     150U /* barcode quiet zone (Rev B 150 ms proposed)                         \
           */
