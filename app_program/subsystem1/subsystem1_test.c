@@ -375,7 +375,19 @@ subsystem1_test (void)
                "heartbeat 1 s (2-4 in 2.1 s), backlog drained, drop count "
                "reported");
 
-    /* S1-U08: inbound command validation (D-02, R7). */
+    /* S1-U08: inbound command validation (D-02, R7). Its last step delivers
+       a VALID remote START; in an armed build the controller would act on it
+       and drive the car during the test run (29 Oct calibration run), so the
+       check runs only in disarmed builds. */
+#if APP_CAL_MOTION_ARMED
+    tm_printf((UB *) "[TEST] S1-U08 NOT RUN (motion armed: a valid START "
+                     "would start a real run)\n");
+    (void) gen0;
+    (void) st0;
+    (void) st1;
+    (void) t_on;
+    (void) &s1t_inject;
+#else
     gen0 = g_remote_cmd_gen;
     subsystem1_stats(&st0);
     s1t_inject(APP_REMOTE_CMD_START, 10U, true, APP_CMD_FRAME_BYTES);
@@ -423,6 +435,7 @@ subsystem1_test (void)
             }
         }
     }
+#endif /* S1-U08 */
     s1t_drain(200U, &seen);
 
     /* S1-U09: OUT full (bridge stalled 500 ms) -> task keeps running, events

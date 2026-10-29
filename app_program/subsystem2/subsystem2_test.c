@@ -138,7 +138,13 @@ subsystem2_test (void)
     TEST_CHECK("S2-U03b", 0U == drv_encoder_glitches(),
                "no quadrature glitches at rest");
 
-    /* S2-U04: a drive command while disarmed is rejected and nothing moves. */
+    /* S2-U04: a drive command while disarmed is rejected and nothing moves.
+       In an armed build the MOVE would really drive the car and collide with
+       S2-U06, so nothing is sent. */
+#if APP_CAL_MOTION_ARMED
+    tm_printf((UB *) "[TEST] S2-U04 NOT RUN (motion armed; rejection path "
+                     "needs disarmed build)\n");
+#else
     {
         app_motion_cmd_t    cmd;
         uint32_t            rec = 0U;
@@ -154,17 +160,12 @@ subsystem2_test (void)
         (void) tk_dly_tsk(S2_TEST_SETTLE_MS);
         (void) app_motion_read(&st);
         drv_motor_get_compare(DRV_MOTOR_LEFT, &cc_a, &cc_b);
-#if APP_CAL_MOTION_ARMED
-        tm_printf((UB *) "[TEST] S2-U04 NOT RUN (motion armed; rejection path "
-                         "needs disarmed build)\n");
-        (void) st;
-#else
         TEST_CHECK("S2-U04",
                    (APP_MOTION_BRAKED == st.motion_state) && (0U == cc_a) &&
                        (0U == cc_b),
                    "MOVE rejected while disarmed: BRAKED, compares 0");
-#endif
     }
+#endif
 
     /* S2-U05: core on the ARM toolchain - stop latency and odometry signs. */
     {

@@ -20,7 +20,7 @@
 /** HV-3/HV-4 done: wheel geometry and encoder ticks measured, polarity
  *  verified on blocks. While 0, MotionControlTask rejects every drive
  *  command with APP_MOTION_RESULT_REJECTED and keeps the motors braked. */
-#define APP_CAL_MOTION_ARMED 0
+#define APP_CAL_MOTION_ARMED 1
 
 /** HV-5 done: ECHO measured <= 3.3 V after the divider/shifter, 5 V supply
  *  identified. While 0, ObstacleScanTask never drives TRIG. */
@@ -29,7 +29,7 @@
 /** HV-7 done: servo pulse limits found at battery voltage. While 0,
  *  ObstacleScanTask configures PWM slice 7 but never routes GP15 to it, so
  *  the servo is not energised. */
-#define APP_CAL_SERVO_ARMED 0
+#define APP_CAL_SERVO_ARMED 1
 
 /** HV-6 done: button polarity confirmed. 1 = pressed reads LOW. */
 #define APP_CAL_BUTTON_ACTIVE_LOW 1
@@ -49,7 +49,7 @@
          */
 #define APP_CAL_T_STALE_MOTION_MS                                              \
     30U /* MotionStatus older than this -> STALE_MOTION [TBC] */
-#define APP_CAL_T_JUNC_MS 60U /* both sensors dark for T_JUNC [TBC] */
+#define APP_CAL_T_JUNC_MS 45U /* both sensors dark for T_JUNC [TBC] */
 /* D-36 straddle bracket (sensors one line width apart, both on WHITE when
    the car is centred): both light means "straight ahead", not "lost". The
    line is lost only after both have been light for T_LOST (about 20 cm at
@@ -79,7 +79,7 @@
     15000U /* pending command expires if no junction [TBC] */
 
 /* ---- Speeds and geometry ----------------------------------------------- */
-#define APP_CAL_V_NOM_CM_S 15U /* nominal line-following speed [TBC, HV-3] */
+#define APP_CAL_V_NOM_CM_S 10U /* nominal line-following speed [TBC, HV-3] */
 #define APP_CAL_V_REVERSE_CM_S 12U /* [TBC] */
 #define APP_CAL_V_SEARCH_CM_S 10U  /* [TBC] */
 #define APP_CAL_V_TURN_CM_S 15U    /* [TBC] */
@@ -89,11 +89,11 @@
    turns both wheels in the car's forward direction AND both counts rise. */
 #define APP_CAL_MOTOR_L_REVERSE 0   /* [TBC, HV-4] */
 #define APP_CAL_MOTOR_R_REVERSE 0   /* [TBC, HV-4] */
-#define APP_CAL_ENC_L_REVERSE 0     /* [TBC, HV-3] */
+#define APP_CAL_ENC_L_REVERSE 1     /* [TBC, HV-3] */
 #define APP_CAL_ENC_R_REVERSE 0     /* [TBC, HV-3] */
 #define APP_CAL_TRACK_WIDTH_MM 140U /* wheel-to-wheel [TBC, HV-3] */
 #define APP_CAL_TICKS_PER_REV                                                  \
-    20U /* full quadrature edges per wheel rev [TBC, HV-3] */
+    2505U /* edges per wheel rev: 29 Oct, 3 x 200 mm MOVE [TBC, HV-3] */
 #define APP_CAL_ENC_STALL_MS                                                   \
     300U /* no ticks while driving for this duration -> STALL [TBC] */
 #define APP_CAL_ENC_STOP_MS                                                    \
@@ -169,7 +169,7 @@
 #define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
 /* ---- Console diagnostics (demo image only) ----------------------------- */
 #define APP_CAL_CONSOLE_CAR_MS                                                 \
-    500U /* "car:" line on the USB console every this many ms; 0 = off. Works  \
+    100U /* "car:" line on the USB console every this many ms; 0 = off. Works  \
             without Wi-Fi so the track can be debugged from the serial port */
 
 /* ---- Mission controller (Phase 7, VehicleControllerTask) --------------- */
