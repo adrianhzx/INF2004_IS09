@@ -22,6 +22,16 @@
 #define MC_INT16_MIN (-32768)
 #define MC_DIST_UM_MAX (2000000000) /* int32 saturation for run distance */
 #define MC_IDLE_SAT 0xFFFFU
+#define MC_U8_MAX 255U
+#define MC_ROUND_DIV 2U            /* + den/2 = round to nearest */
+#define MC_SPEED_UM_MS_TO_CM_S 10U /* um/ms = mm/s; /10 = cm/s */
+/* window length, at least 1 and at most MC_SPEED_WIN_MAX */
+#define MC_SPEED_WINDOW                                                        \
+    ((APP_CAL_SPEED_WINDOW_CYCLES < 1U)                                        \
+         ? 1U                                                                  \
+         : ((APP_CAL_SPEED_WINDOW_CYCLES > MC_SPEED_WIN_MAX)                   \
+                ? MC_SPEED_WIN_MAX                                             \
+                : APP_CAL_SPEED_WINDOW_CYCLES))
 
 /* ---- geometry ------------------------------------------------------------ */
 
@@ -64,7 +74,24 @@ motion_core_speed_from_interval (uint16_t interval_32us)
     return (uint8_t) app_pack_sat_u(cm_s, APP_MSA_SPEED_BITS, NULL);
 }
 
+uint8_t
+motion_core_speed_from_ticks (uint32_t ticks, uint32_t n_cycles)
+{
+    /* um travelled in n x 10 ms; um/ms = mm/s, so
+       cm/s = um / (n x 10 ms x 10), rounded */
+    uint32_t const den  = n_cycles * MC_CYCLE_MS * MC_SPEED_UM_MS_TO_CM_S;
+    uint32_t       cm_s = 0U;
+
+    if (0U == den)
+    {
+        return 0U;
+    }
+    cm_s = ((ticks * motion_core_um_per_tick()) + (den / MC_ROUND_DIV)) / den;
+    return (uint8_t) app_pack_sat_u(cm_s, APP_MSA_SPEED_BITS, NULL);
+}
+
 /* ---- helpers ------------------------------------------------------------- */
+
 
 static int32_t
 clamp_i32 (int32_t value, int32_t lo, int32_t hi)
@@ -161,6 +188,31 @@ latch_now (motion_core_t * p_core, motion_out_t * p_out)
 
 /* ---- odometry ------------------------------------------------------------ */
 
+/** One wheel's speed: windowed tick count when there are enough ticks in
+ *  the window, else the last edge interval (see motion_core.h). */
+static uint8_t
+wheel_speed (uint8_t * p_win, uint8_t idx, int32_t d, uint16_t interval_32us)
+{
+    uint32_t       sum = 0U;
+    uint32_t       i   = 0U;
+    uint32_t const mag = (uint32_t) abs_i32(d);
+
+    if (0U == APP_CAL_SPEED_WINDOW_CYCLES)
+    {
+        return motion_core_speed_from_interval(interval_32us);
+    }
+    p_win[idx] = (uint8_t) ((mag > MC_U8_MAX) ? MC_U8_MAX : mag);
+    for (i = 0U; i < MC_SPEED_WINDOW; i++)
+    {
+        sum += p_win[i];
+    }
+    if (sum >= APP_CAL_SPEED_WINDOW_MIN_TICKS)
+    {
+        return motion_core_speed_from_ticks(sum, MC_SPEED_WINDOW);
+    }
+    return motion_core_speed_from_interval(interval_32us);
+}
+
 static void
 odometry (motion_core_t * p_core, motion_in_t const * p_in, int32_t * p_dl,
           int32_t * p_dr)
@@ -216,14 +268,21 @@ odometry (motion_core_t * p_core, motion_in_t const * p_in, int32_t * p_dl,
         p_core->idle_cycles_r = 0U;
         p_core->dir_r_reverse = (dr < 0);
     }
-    p_core->speed_l_cm_s =
-        (p_core->idle_cycles_l >= MC_MS_TO_CYCLES(APP_CAL_ENC_STOP_MS))
-            ? 0U
-            : motion_core_speed_from_interval(p_in->interval_l_32us);
-    p_core->speed_r_cm_s =
-        (p_core->idle_cycles_r >= MC_MS_TO_CYCLES(APP_CAL_ENC_STOP_MS))
-            ? 0U
-            : motion_core_speed_from_interval(p_in->interval_r_32us);
+    {
+        uint8_t const sl = wheel_speed(p_core->win_l, p_core->win_idx, dl,
+                                       p_in->interval_l_32us);
+        uint8_t const sr = wheel_speed(p_core->win_r, p_core->win_idx, dr,
+                                       p_in->interval_r_32us);
+        p_core->win_idx  = (uint8_t) ((p_core->win_idx + 1U) % MC_SPEED_WINDOW);
+        p_core->speed_l_cm_s =
+            (p_core->idle_cycles_l >= MC_MS_TO_CYCLES(APP_CAL_ENC_STOP_MS))
+                ? 0U
+                : sl;
+        p_core->speed_r_cm_s =
+            (p_core->idle_cycles_r >= MC_MS_TO_CYCLES(APP_CAL_ENC_STOP_MS))
+                ? 0U
+                : sr;
+    }
     *p_dl = dl;
     *p_dr = dr;
 }
@@ -492,11 +551,28 @@ static void
 control_step (motion_core_t * p_core, app_line_state_t const * p_line,
               int32_t * p_pwm_l, int32_t * p_pwm_r, motion_out_t * p_out)
 {
-    int32_t const set = (int32_t) p_core->speed_set_cm_s;
-    int32_t const base_l =
-        speed_control(set, (int32_t) p_core->speed_l_cm_s, &p_core->i_l_q8);
-    int32_t const base_r =
-        speed_control(set, (int32_t) p_core->speed_r_cm_s, &p_core->i_r_q8);
+    int32_t const set    = (int32_t) p_core->speed_set_cm_s;
+    int32_t       set_l  = set;
+    int32_t       set_r  = set;
+    int32_t       base_l = 0;
+    int32_t       base_r = 0;
+
+    if ((uint8_t) APP_MOTION_FOLLOWING == p_core->state)
+    {
+        /* 29 Oct: steer moves the two wheel SETPOINTS apart, so each speed
+           loop holds its own wheel at the new speed. Adding steer to the PWM
+           only (below, APP_CAL_STEER_GAIN_Q8) is cancelled by the integral
+           terms within a second and the car would not take a curve. */
+        int32_t const d = (set * (int32_t) p_line->steer *
+                           (int32_t) APP_CAL_STEER_SPEED_PCT) /
+                          (int32_t) (MC_PCT * MC_PCT);
+        set_l = clamp_i32(set + d, 0, (int32_t) APP_SPEED_CM_S_MAX);
+        set_r = clamp_i32(set - d, 0, (int32_t) APP_SPEED_CM_S_MAX);
+    }
+    base_l =
+        speed_control(set_l, (int32_t) p_core->speed_l_cm_s, &p_core->i_l_q8);
+    base_r =
+        speed_control(set_r, (int32_t) p_core->speed_r_cm_s, &p_core->i_r_q8);
     int32_t const progress =
         (abs_i32(p_core->move_ticks_l) + abs_i32(p_core->move_ticks_r)) / 2;
 

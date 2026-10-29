@@ -21,6 +21,7 @@
  */
 
 #include "app.h"
+#include "integration/integration_test.h"
 
 #include "shared/app_cal.h"
 #include "shared/app_gpio_irq.h"
@@ -146,7 +147,8 @@ usermain (void)
     subsystem3_test();
     subsystem4_test();
     subsystem5_test();
-    app_shared_test(); /* last: SH-U08 leaves the system latched in S7 */
+    integration_test(); /* INT-13..INT-20: before SH-U08 latches S7 */
+    app_shared_test();  /* last: SH-U08 leaves the system latched in S7 */
     tm_printf((UB *) "[TEST] === test run end ===\n");
 #endif
 

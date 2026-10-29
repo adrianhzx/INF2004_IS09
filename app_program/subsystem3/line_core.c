@@ -13,6 +13,11 @@
 #define LC_Q8 256
 #define LC_CYC_SAT 0xFFFFU
 #define LC_SEQ_MASK 0x0FU
+#define LC_AGE_SAT 0xFFU
+#define LC_SIDE_NONE 0U
+#define LC_SIDE_LEFT 1U
+#define LC_SIDE_CENTRE 2U
+
 
 static int32_t
 clamp_i32 (int32_t v, int32_t lo, int32_t hi)
@@ -66,6 +71,10 @@ line_core_init (line_core_t * p_core)
     p_core->light_cycles   = 0U;
     p_core->prev_error     = 0;
     p_core->seq            = 0U;
+    p_core->light_age_l    = LC_AGE_SAT; /* never seen LIGHT: not abrupt */
+    p_core->light_age_c    = LC_AGE_SAT;
+    p_core->hold_cycles    = 0U;
+    p_core->hold_side      = LC_SIDE_NONE;
 }
 
 void
@@ -219,18 +228,87 @@ events_step (line_core_t * p_core, bool both_dark, bool both_light,
     }
 }
 
+static uint8_t
+age_step (uint8_t age, bool light)
+{
+    return light ? 0U : ((age < LC_AGE_SAT) ? (uint8_t) (age + 1U) : age);
+}
+
+/** D-37 branch hold (see line_core.h). Uses the light ages from BEFORE this
+ *  sample. Returns true while the steering must be held straight; sets
+ *  *p_junction when a crossbar is recognised during a hold. */
+static bool
+branch_step (line_core_t * p_core, bool dark_l, bool dark_c, bool * p_junction)
+{
+    uint32_t const hold      = LC_MS_TO_CYCLES(APP_CAL_LINE_BRANCH_HOLD_MS);
+    bool           held_dark = false;
+
+    *p_junction = false;
+    if (0U == hold)
+    {
+        return false;
+    }
+    if (0U == p_core->hold_cycles)
+    {
+        /* start: exactly one sensor DARK and it was LIGHT a moment ago */
+        if (dark_l && !dark_c &&
+            (p_core->light_age_l < (uint8_t) APP_CAL_LINE_BRANCH_RISE_CYCLES))
+        {
+            p_core->hold_side   = LC_SIDE_LEFT;
+            p_core->hold_cycles = (uint16_t) hold;
+        }
+        else if (dark_c && !dark_l &&
+                 (p_core->light_age_c <
+                  (uint8_t) APP_CAL_LINE_BRANCH_RISE_CYCLES))
+        {
+            p_core->hold_side   = LC_SIDE_CENTRE;
+            p_core->hold_cycles = (uint16_t) hold;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    if (dark_l && dark_c)
+    {
+        /* the other end of a crossbar: junction, steering back to normal */
+        *p_junction         = true;
+        p_core->hold_cycles = 0U;
+        p_core->hold_side   = LC_SIDE_NONE;
+        return false;
+    }
+    held_dark = (LC_SIDE_LEFT == p_core->hold_side) ? dark_l : dark_c;
+    if (!held_dark)
+    {
+        /* side branch passed: ignored */
+        p_core->hold_cycles = 0U;
+        p_core->hold_side   = LC_SIDE_NONE;
+        return false;
+    }
+    p_core->hold_cycles--;
+    if (0U == p_core->hold_cycles)
+    {
+        /* still DARK after the hold: a real drift, steer from now on */
+        p_core->hold_side = LC_SIDE_NONE;
+        return false;
+    }
+    return true;
+}
+
 void
 line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
                 line_out_t * p_out)
 {
-    uint8_t n_l     = 0U;
-    uint8_t n_c     = 0U;
-    bool    dark_l  = false;
-    bool    dark_c  = false;
-    bool    light_l = false;
-    bool    light_c = false;
-    int32_t error   = 0;
-    int32_t steer   = 0;
+    uint8_t n_l           = 0U;
+    uint8_t n_c           = 0U;
+    bool    dark_l        = false;
+    bool    dark_c        = false;
+    bool    light_l       = false;
+    bool    light_c       = false;
+    int32_t error         = 0;
+    int32_t steer         = 0;
+    bool    hold          = false;
+    bool    hold_junction = false;
 
     adc_left = (uint16_t) ((adc_left > APP_ADC_MAX) ? APP_ADC_MAX : adc_left);
     adc_centre =
@@ -252,7 +330,25 @@ line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
     steer = clamp_i32(steer, APP_LINE_ERROR_MIN, APP_LINE_ERROR_MAX);
     p_core->prev_error = (int16_t) error;
 
+    hold                = branch_step(p_core, dark_l, dark_c, &hold_junction);
+    p_core->light_age_l = age_step(p_core->light_age_l, light_l);
+    p_core->light_age_c = age_step(p_core->light_age_c, light_c);
+    if (hold)
+    {
+        error = 0; /* D-37: straight through a possible junction */
+        steer = 0;
+        /* no derivative kick when the hold ends on a passed branch */
+        p_core->prev_error = 0;
+    }
+
     events_step(p_core, dark_l && dark_c, light_l && light_c, p_out);
+    if (hold_junction && p_core->junction_armed)
+    {
+        /* D-37: crossbar met at an angle; the both-dark T_JUNC path is
+           disarmed until both sensors leave the bar */
+        p_core->junction_armed = false;
+        p_out->evt_junction    = true;
+    }
 
     p_core->seq = (uint8_t) ((p_core->seq + 1U) & LC_SEQ_MASK);
 
@@ -270,4 +366,5 @@ line_core_step (line_core_t * p_core, uint16_t adc_left, uint16_t adc_centre,
     p_out->contrast_ok = p_core->calibrated;
     p_out->n_left      = n_l;
     p_out->n_centre    = n_c;
+    p_out->branch_hold = hold;
 }

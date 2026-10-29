@@ -20,7 +20,7 @@
 /** HV-3/HV-4 done: wheel geometry and encoder ticks measured, polarity
  *  verified on blocks. While 0, MotionControlTask rejects every drive
  *  command with APP_MOTION_RESULT_REJECTED and keeps the motors braked. */
-#define APP_CAL_MOTION_ARMED 0
+#define APP_CAL_MOTION_ARMED 1
 
 /** HV-5 done: ECHO measured <= 3.3 V after the divider/shifter, 5 V supply
  *  identified. While 0, ObstacleScanTask never drives TRIG. */
@@ -29,7 +29,7 @@
 /** HV-7 done: servo pulse limits found at battery voltage. While 0,
  *  ObstacleScanTask configures PWM slice 7 but never routes GP15 to it, so
  *  the servo is not energised. */
-#define APP_CAL_SERVO_ARMED 0
+#define APP_CAL_SERVO_ARMED 1
 
 /** HV-6 done: button polarity confirmed. 1 = pressed reads LOW. */
 #define APP_CAL_BUTTON_ACTIVE_LOW 1
@@ -49,7 +49,9 @@
          */
 #define APP_CAL_T_STALE_MOTION_MS                                              \
     30U /* MotionStatus older than this -> STALE_MOTION [TBC] */
-#define APP_CAL_T_JUNC_MS 60U /* both sensors dark for T_JUNC [TBC] */
+#define APP_CAL_T_JUNC_MS                                                      \
+    60U /* both sensors dark for T_JUNC [TBC]; 45 gave junctions on straights  \
+         */
 /* D-36 straddle bracket (sensors one line width apart, both on WHITE when
    the car is centred): both light means "straight ahead", not "lost". The
    line is lost only after both have been light for T_LOST (about 20 cm at
@@ -79,21 +81,21 @@
     15000U /* pending command expires if no junction [TBC] */
 
 /* ---- Speeds and geometry ----------------------------------------------- */
-#define APP_CAL_V_NOM_CM_S 15U /* nominal line-following speed [TBC, HV-3] */
+#define APP_CAL_V_NOM_CM_S 8U /* nominal line-following speed [TBC, HV-3] */
 #define APP_CAL_V_REVERSE_CM_S 12U /* [TBC] */
 #define APP_CAL_V_SEARCH_CM_S 10U  /* [TBC] */
-#define APP_CAL_V_TURN_CM_S 15U    /* [TBC] */
+#define APP_CAL_V_TURN_CM_S 10U    /* 29 Oct: 15 spun too fast [TBC] */
 #define APP_CAL_WHEEL_DIA_MM 65U   /* 65 mm measured 27 Oct (HV-3) */
 /* Polarity switches (HV-3/HV-4): 1 inverts that motor's drive direction or
    that encoder's count direction in software. Set so that FOLLOW/MOVE(+)
    turns both wheels in the car's forward direction AND both counts rise. */
 #define APP_CAL_MOTOR_L_REVERSE 0   /* [TBC, HV-4] */
 #define APP_CAL_MOTOR_R_REVERSE 0   /* [TBC, HV-4] */
-#define APP_CAL_ENC_L_REVERSE 0     /* [TBC, HV-3] */
+#define APP_CAL_ENC_L_REVERSE 1     /* [TBC, HV-3] */
 #define APP_CAL_ENC_R_REVERSE 0     /* [TBC, HV-3] */
 #define APP_CAL_TRACK_WIDTH_MM 140U /* wheel-to-wheel [TBC, HV-3] */
 #define APP_CAL_TICKS_PER_REV                                                  \
-    20U /* full quadrature edges per wheel rev [TBC, HV-3] */
+    2505U /* edges per wheel rev: 29 Oct, 3 x 200 mm MOVE [TBC, HV-3] */
 #define APP_CAL_ENC_STALL_MS                                                   \
     300U /* no ticks while driving for this duration -> STALL [TBC] */
 #define APP_CAL_ENC_STOP_MS                                                    \
@@ -115,11 +117,18 @@
 #define APP_CAL_SPEED_KI_Q8 64U           /* 0.25 %/(cm/s x cycle) [TBC] */
 #define APP_CAL_SPEED_I_MAX_Q8 (30 * 256) /* integral clamp = 30 % PWM */
 #define APP_CAL_STRAIGHT_KP_Q8                                                 \
-    768U /* 3.0 % per tick of L-R difference [TBC]                             \
-          */
+    6U /* MOVE L-R correction per tick. 768 was 3 %/tick for 20 ticks/rev      \
+          (0.3 %/mm); 6 keeps 0.3 %/mm at 2505 ticks/rev [TBC] */
+/* Wheel speed from ticks counted over a window instead of one edge interval
+   (29 Oct, see motion_core.h): 0 = edge interval only. */
+#define APP_CAL_SPEED_WINDOW_CYCLES 5U    /* x 10 ms [TBC] */
+#define APP_CAL_SPEED_WINDOW_MIN_TICKS 8U /* fewer -> edge interval [TBC] */
+/* FOLLOW steering (29 Oct): steer moves the wheel speed SETPOINTS apart by
+   this % of the set speed at steer +-100 (100 = outer 2x, inner stopped). */
+#define APP_CAL_STEER_SPEED_PCT 150U /* [TBC, track] */
 #define APP_CAL_STEER_GAIN_Q8                                                  \
-    128U /* FOLLOW: 0.5 % PWM per steer unit [TBC]                             \
-          */
+    0U /* extra PWM per steer unit on top (was 128, then 48); the speed loops  \
+          cancelled it, see D-38 */
 #define APP_CAL_TURN_UNTIL_LINE_MIN_PCT                                        \
     50U /* until_line may finish after this % of the angle */
 #define APP_CAL_TURN_UNTIL_LINE_MAX_PCT                                        \
@@ -133,8 +142,8 @@
    at or below LIGHT_PCT; in between it is "on an edge", which counts as on
    the line and is neither a junction nor a loss. With the two sensors one
    line width apart (18 mm, A7) a centred car reads both near 50. */
-#define APP_CAL_LINE_DARK_PCT 70U  /* normalised >= this = dark [TBC] */
-#define APP_CAL_LINE_LIGHT_PCT 30U /* normalised <= this = light [TBC] */
+#define APP_CAL_LINE_DARK_PCT 45U  /* normalised >= this = dark [TBC] */
+#define APP_CAL_LINE_LIGHT_PCT 12U /* normalised <= this = light [TBC] */
 /* Tracking setpoint subtracted from (n_centre - n_left) [TBC, HV-10, A7]:
    0  = the line runs midway between the two sensors, both partly on it
         (needs a sensor pitch of about the 18 mm line width or less);
@@ -142,7 +151,13 @@
         fully on it (wider pitch). The car is "centred" at error 0. */
 #define APP_CAL_LINE_ERROR_SETPOINT 0
 #define APP_CAL_LINE_KP_Q8 256U /* steer = Kp*error + Kd*d(error) [TBC] */
-#define APP_CAL_LINE_KD_Q8 64U
+#define APP_CAL_LINE_KD_Q8                                                     \
+    0U /* 64 kicked the steering each time a sensor hit the line (29 Oct) */
+/* D-37 branch hold (line_core.h): an abrupt single DARK is held straight for
+   up to HOLD_MS so the car goes straight through T / cross junctions. */
+#define APP_CAL_LINE_BRANCH_HOLD_MS 0U /* 0 = off [TBC, track] */
+#define APP_CAL_LINE_BRANCH_RISE_CYCLES                                        \
+    3U /* LIGHT within this many 10 ms cycles before DARK = abrupt [TBC] */
 #define APP_CAL_LINE_CAL_DECAY                                                 \
     1U /* running min/max relax by this many LSB per decay step */
 #define APP_CAL_LINE_CAL_DECAY_CYCLES                                          \
@@ -169,7 +184,7 @@
 #define APP_CAL_D_PASS_MAX_MM 600U /* [TBC] */
 /* ---- Console diagnostics (demo image only) ----------------------------- */
 #define APP_CAL_CONSOLE_CAR_MS                                                 \
-    500U /* "car:" line on the USB console every this many ms; 0 = off. Works  \
+    100U /* "car:" line on the USB console every this many ms; 0 = off. Works  \
             without Wi-Fi so the track can be debugged from the serial port */
 
 /* ---- Mission controller (Phase 7, VehicleControllerTask) --------------- */

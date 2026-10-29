@@ -26,6 +26,10 @@
 #define S5_T_SWEEP_HALF_IDX 12U /* S5-U08: +-60 deg around ahead */
 #define S5_T_SWEEP_EXTRA_MS 80U /* S5-U08: margin over the settle time */
 #define S5_T_SWEEP_START_MS 1000U
+/* S5-U07 / S5-U08 live loops (never return): 1 = run them when the HV-5 /
+   HV-7 gates are set; 0 = skip them so the run continues (needed for the
+   integration run INT-13..INT-20 with the gates set). */
+#define S5_T_LIVE_LOOPS 0
 
 static void
 force_echo (uint32_t width_us)
@@ -37,7 +41,7 @@ force_echo (uint32_t width_us)
     app_hw_gpio_irq_force(APP_PIN_US_ECHO, APP_GPIO_IRQ_EDGE_FALL, false);
 }
 
-#if APP_CAL_ECHO_SHIFTER_VERIFIED
+#if S5_T_LIVE_LOOPS && APP_CAL_ECHO_SHIFTER_VERIFIED
 /** One real HC-SR04 ranging (TRIG pulse, wait for EchoIsr). Returns true
  *  and the echo width when a valid echo was measured. */
 static bool
@@ -65,7 +69,7 @@ s5t_range (uint16_t * p_width_us)
 }
 #endif
 
-#if APP_CAL_ECHO_SHIFTER_VERIFIED && !APP_CAL_SERVO_ARMED
+#if S5_T_LIVE_LOOPS && APP_CAL_ECHO_SHIFTER_VERIFIED && !APP_CAL_SERVO_ARMED
 /** S5-U07: sensor only, servo not needed. Prints distance 5 times/s. */
 static void
 s5t_live_range_loop (void)
@@ -97,7 +101,7 @@ s5t_live_range_loop (void)
 }
 #endif
 
-#if APP_CAL_SERVO_ARMED
+#if S5_T_LIVE_LOOPS && APP_CAL_SERVO_ARMED
 /** S5-U08: servo sweep -60..+60 deg in 15 deg steps and back, forever.
  *  With the sensor gate set it also ranges at every angle (a "radar").
  *  Angles: 0 = ahead, positive = LEFT. */
@@ -278,15 +282,17 @@ subsystem5_test (void)
 
     /* S5-U07 / S5-U08: live hardware loops (never return). They run only
        once the matching gates are set, after HV-5 / HV-7 bench checks. */
-#if APP_CAL_SERVO_ARMED
+#if S5_T_LIVE_LOOPS && APP_CAL_SERVO_ARMED
     s5t_sweep_loop();
-#elif APP_CAL_ECHO_SHIFTER_VERIFIED
+#elif S5_T_LIVE_LOOPS && APP_CAL_ECHO_SHIFTER_VERIFIED
     s5t_live_range_loop();
 #else
     tm_printf((UB *) "[TEST] S5-U07 INFO  skipped: live ranging needs "
-                     "APP_CAL_ECHO_SHIFTER_VERIFIED = 1 (HV-5)\n");
+                     "S5_T_LIVE_LOOPS = 1 and APP_CAL_ECHO_SHIFTER_VERIFIED "
+                     "= 1 (HV-5)\n");
     tm_printf((UB *) "[TEST] S5-U08 INFO  skipped: servo sweep needs "
-                     "APP_CAL_SERVO_ARMED = 1 (HV-7)\n");
+                     "S5_T_LIVE_LOOPS = 1 and APP_CAL_SERVO_ARMED = 1 "
+                     "(HV-7)\n");
 #endif
 
     TEST_SUMMARY("subsystem5");

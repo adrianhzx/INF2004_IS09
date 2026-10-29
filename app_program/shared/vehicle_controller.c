@@ -76,9 +76,18 @@ gather (uint32_t events, mission_in_t * p_in)
     uint32_t w0 = 0U;
     uint32_t w1 = 0U;
 
-    p_in->events        = events;
-    p_in->boot_done     = g_vc_boot_done;
-    p_in->motion_armed  = (0 != APP_CAL_MOTION_ARMED);
+    p_in->events    = events;
+    p_in->boot_done = g_vc_boot_done;
+#if defined(APP_TEST) && APP_TEST
+    /* TEST image: the self-tests drive the car themselves (S2-U06,
+       INT-13..INT-20). A START (e.g. the remote START that S1-U08 injects)
+       must never begin a mission run here, so missions see "not armed" and
+       refuse it exactly as in a disarmed build (INT-04). The demo image is
+       unchanged. */
+    p_in->motion_armed = false;
+#else
+    p_in->motion_armed = (0 != APP_CAL_MOTION_ARMED);
+#endif
     p_in->stop_latched  = app_stop_latched();
     p_in->stop_cause    = (uint8_t) app_stop_cause_get();
     p_in->faults        = app_fault_get();

@@ -197,16 +197,23 @@ static void
 test_geometry (void)
 {
     CHECK("H-MO-01", motion_core_um_per_tick() > 0U, "um per tick positive");
-    /* 65 mm wheel, 20 ticks: 204.2 mm / 20 = 10.2 mm */
-    CHECK("H-MO-02",
-          (motion_core_um_per_tick() > 10000U) &&
-              (motion_core_um_per_tick() < 10400U),
-          "um per tick ~10.2 mm for the default geometry");
-    /* 90 deg pivot: pi*140/4 = 110 mm -> ~10 ticks */
-    CHECK("H-MO-03",
-          (motion_core_turn_ticks(900U) >= 9U) &&
-              (motion_core_turn_ticks(900U) <= 12U),
-          "90 deg pivot ~10-11 ticks");
+    /* circumference / ticks per rev from app_cal.h (29 Oct: was fixed at
+       20 ticks = 10.2 mm; now follows the calibration) */
+    {
+        uint32_t const exp_um = (APP_CAL_WHEEL_DIA_MM * 1000U * 355U) /
+                                (113U * APP_CAL_TICKS_PER_REV);
+        uint32_t const exp_90 =
+            (APP_CAL_TRACK_WIDTH_MM * APP_CAL_TICKS_PER_REV) /
+            (4U * APP_CAL_WHEEL_DIA_MM); /* pi cancels */
+        CHECK("H-MO-02",
+              (motion_core_um_per_tick() * 100U >= exp_um * 98U) &&
+                  (motion_core_um_per_tick() * 100U <= exp_um * 102U),
+              "um per tick = wheel circumference / APP_CAL_TICKS_PER_REV");
+        CHECK("H-MO-03",
+              (motion_core_turn_ticks(900U) * 10U >= exp_90 * 9U) &&
+                  (motion_core_turn_ticks(900U) * 10U <= (exp_90 * 11U) + 10U),
+              "90 deg pivot = track x pi / 4 in ticks");
+    }
     CHECK("H-MO-04",
           motion_core_turn_ticks(1800U) == 2U * motion_core_turn_ticks(900U) ||
               motion_core_turn_ticks(1800U) ==
@@ -214,13 +221,85 @@ test_geometry (void)
           "180 deg is twice 90 deg");
     CHECK("H-MO-05", 0U == motion_core_speed_from_interval(0U),
           "no interval -> 0 speed");
-    /* 20 cm/s: interval = 10210 um / 200 um/ms = 51 ms = 1595 x 32 us */
-    CHECK("H-MO-06",
-          (motion_core_speed_from_interval(1595U) >= 19U) &&
-              (motion_core_speed_from_interval(1595U) <= 21U),
-          "51 ms interval ~20 cm/s");
+    /* 20 cm/s = 200 um/ms: interval = um_per_tick / 200 ms */
+    {
+        uint16_t const iv =
+            (uint16_t) ((motion_core_um_per_tick() * 1000U) / (200U * 32U));
+        CHECK("H-MO-06",
+              (motion_core_speed_from_interval(iv) >= 18U) &&
+                  (motion_core_speed_from_interval(iv) <= 22U),
+              "edge interval of a 20 cm/s wheel reads ~20 cm/s");
+    }
     CHECK("H-MO-07", 127U == motion_core_speed_from_interval(1U),
           "tiny interval saturates at 127");
+}
+
+/** 29 Oct windowed speed: a wheel turning at a steady rate whose edge
+ *  intervals jitter (uneven quadrature) must read a steady speed. */
+static void
+test_speed_window (void)
+{
+    motion_core_t  core;
+    motion_in_t    in;
+    motion_out_t   out;
+    uint32_t       i       = 0U;
+    uint32_t       per_cyc = 0U;
+    uint32_t       exp     = 0U;
+    uint8_t        lo      = 255U;
+    uint8_t        hi      = 0U;
+    uint32_t const um      = motion_core_um_per_tick();
+
+    CHECK("H-MO-50", 0U == motion_core_speed_from_ticks(0U, 5U),
+          "no ticks in the window -> 0 cm/s");
+    CHECK("H-MO-51", 0U == motion_core_speed_from_ticks(10U, 0U),
+          "empty window -> 0 cm/s");
+    /* ticks per 10 ms for ~10 cm/s = 1000 um/10 ms */
+    per_cyc = (1000U + (um / 2U)) / um;
+    if (0U == per_cyc)
+    {
+        per_cyc = 1U;
+    }
+    exp = (per_cyc * um + 50U) / 100U;
+    CHECK("H-MO-52",
+          motion_core_speed_from_ticks(per_cyc * 5U, 5U) == (uint8_t) exp,
+          "ticks over 5 cycles -> cm/s");
+
+    motion_core_init(&core);
+    (void) memset(&in, 0, sizeof(in));
+    in.motion_armed = true;
+    for (i = 0U; i < 40U; i++)
+    {
+        in.ticks_l = (uint16_t) (in.ticks_l + per_cyc);
+        in.ticks_r = (uint16_t) (in.ticks_r + per_cyc);
+        /* edge-to-edge time alternates 0.4x / 1.6x of the mean */
+        {
+            uint32_t const base = 10000U / (per_cyc * 32U); /* mean, 32 us */
+            uint32_t const iv =
+                (0U == (i % 2U)) ? ((base * 4U) / 10U) : ((base * 16U) / 10U);
+            in.interval_l_32us = (uint16_t) ((0U == iv) ? 1U : iv);
+        }
+        in.interval_r_32us = in.interval_l_32us;
+        in.ctrl_heartbeat++;
+        motion_core_step(&core, &in, &out);
+        if (i >= 10U)
+        {
+            lo = (out.status.speed_l_cm_s < lo) ? out.status.speed_l_cm_s : lo;
+            hi = (out.status.speed_l_cm_s > hi) ? out.status.speed_l_cm_s : hi;
+        }
+    }
+#if APP_CAL_SPEED_WINDOW_CYCLES
+    if ((per_cyc * MC_SPEED_WIN_MAX) >= APP_CAL_SPEED_WINDOW_MIN_TICKS)
+    {
+        CHECK("H-MO-53", ((uint32_t) (hi - lo) <= 1U) && (lo + 1U >= exp),
+              "jittery edge intervals: windowed speed steady within 1 cm/s");
+    }
+    else
+    {
+        printf("H-MO-53 skipped (encoder too coarse for the window)\n");
+    }
+#else
+    printf("H-MO-53 skipped (APP_CAL_SPEED_WINDOW_CYCLES 0)\n");
+#endif
 }
 
 static void
@@ -496,6 +575,23 @@ test_follow_and_guards (void)
     (void) run_until_done(&core, &car, &out, 100U, -40, true, false, false);
     CHECK("H-MO-35", out.pwm_l_pct < out.pwm_r_pct,
           "negative steer drives right wheel harder");
+    /* 29 Oct: a held steer must still turn the car after the speed loops
+       settle (they used to cancel PWM-only steering within ~1 s) */
+    (void) run_until_done(&core, &car, &out, 300U, 50, true, false, false);
+    CHECK("H-MO-35b",
+          ((int32_t) out.status.speed_l_cm_s >=
+           (int32_t) out.status.speed_r_cm_s + 10) &&
+              (APP_MOTION_FOLLOWING == out.status.motion_state),
+          "FOLLOW 20 cm/s, steer +50 for 3 s: left wheel >= right + 10 cm/s");
+    (void) run_until_done(&core, &car, &out, 300U, 0, true, false, false);
+    CHECK("H-MO-35c",
+          ((int32_t) out.status.speed_l_cm_s -
+               (int32_t) out.status.speed_r_cm_s <=
+           2) &&
+              ((int32_t) out.status.speed_r_cm_s -
+                   (int32_t) out.status.speed_l_cm_s <=
+               2),
+          "steer 0 again: both wheels back to the same speed");
 
     /* stale line while FOLLOWING -> STALE_LINE stop within ~30 ms */
     {
@@ -702,6 +798,7 @@ int
 main (void)
 {
     test_geometry();
+    test_speed_window();
     test_decoder();
     test_latch_and_commands();
     test_move_distance();

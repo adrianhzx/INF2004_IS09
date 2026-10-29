@@ -141,8 +141,13 @@ test_line_basic (void)
     line_core_step(&core, WHITE, BLACK, &out);
     CHECK("H-LN-10", (100 == out.state.line_error) && (out.state.steer > 0),
           "line right -> error +100, steer > 0");
-    /* line drifted left: left black, centre white -> -100 */
-    line_core_step(&core, BLACK, WHITE, &out);
+    /* line drifted left: left black, centre white -> -100. D-37: an abrupt
+       LIGHT->DARK is first held straight as a possible branch; a sensor that
+       stays DARK past APP_CAL_LINE_BRANCH_HOLD_MS is real drift. */
+    for (i = 0U; i <= ((APP_CAL_LINE_BRANCH_HOLD_MS + 9U) / 10U); i++)
+    {
+        line_core_step(&core, BLACK, WHITE, &out);
+    }
     CHECK("H-LN-11", (-100 == out.state.line_error) && (out.state.steer < 0),
           "line left -> error -100, steer < 0");
     CHECK("H-LN-12", (out.state.steer >= -100) && (out.state.steer <= 100),
@@ -179,8 +184,8 @@ test_line_events (void)
         junctions += out.evt_junction ? 1U : 0U;
         if (out.evt_junction)
         {
-            CHECK("H-LN-14", 5U == i,
-                  "JUNCTION raised on the 6th both-dark cycle");
+            CHECK("H-LN-14", (((APP_CAL_T_JUNC_MS + 9U) / 10U) - 1U) == i,
+                  "JUNCTION raised once both dark for APP_CAL_T_JUNC_MS");
             CHECK("H-LN-15", APP_LINE_EVT_JUNCTION == out.state.event,
                   "event field = JUNCTION");
         }
@@ -280,6 +285,132 @@ test_line_events (void)
     /* raw value above 12 bits is clamped, not wrapped */
     line_core_step(&core, 65535U, 65535U, &out);
     CHECK("H-LN-25", 100U == out.n_left, "raw > 4095 clamps to black");
+}
+
+/* ---- D-37 branch hold: junctions vs drift -------------------------------- */
+
+/* straight with the straddle bracket: both sensors light, car centred */
+static void
+straight_cycles (line_core_t * p_core, line_out_t * p_out, uint32_t n)
+{
+    uint32_t i = 0U;
+    for (i = 0U; i < n; i++)
+    {
+        line_core_step(p_core, WHITE, WHITE, p_out);
+    }
+}
+
+static void
+test_line_branch_hold (void)
+{
+    line_core_t    core;
+    line_out_t     out;
+    uint32_t       i         = 0U;
+    uint32_t       junctions = 0U;
+    bool           straight  = true;
+    uint32_t const hold      = (APP_CAL_LINE_BRANCH_HOLD_MS + 9U) / 10U;
+
+    /* side branch on the LEFT (|-): left goes black at once for 120 ms (an
+       18 mm branch at 15 cm/s), centre stays white -> no steering, no
+       junction */
+    calibrated_core(&core);
+    straight_cycles(&core, &out, 20U);
+    for (i = 0U; i < 12U; i++)
+    {
+        line_core_step(&core, BLACK, WHITE, &out);
+        straight = straight && (0 == out.state.line_error) &&
+                   (0 == out.state.steer) && out.branch_hold;
+        junctions += out.evt_junction ? 1U : 0U;
+    }
+    line_core_step(&core, WHITE, WHITE, &out);
+    straight = straight && !out.branch_hold && (0 == out.state.steer);
+    CHECK("H-LN-26", straight && (0U == junctions),
+          "D-37 side branch on the left: steering held straight, no "
+          "JUNCTION, released when the sensor is light again");
+
+    /* same on the CENTRE side (-|) */
+    calibrated_core(&core);
+    straight_cycles(&core, &out, 20U);
+    straight  = true;
+    junctions = 0U;
+    for (i = 0U; i < 12U; i++)
+    {
+        line_core_step(&core, WHITE, BLACK, &out);
+        straight = straight && (0 == out.state.steer) && out.branch_hold;
+        junctions += out.evt_junction ? 1U : 0U;
+    }
+    straight_cycles(&core, &out, 5U);
+    CHECK("H-LN-27", straight && (0U == junctions) && !out.branch_hold,
+          "D-37 side branch on the centre side: held straight, ignored");
+
+    /* crossbar met at an angle: left black first, centre 3 cycles later;
+       both black for only 4 cycles (< T_JUNC) -> JUNCTION once, straight */
+    calibrated_core(&core);
+    straight_cycles(&core, &out, 20U);
+    straight  = true;
+    junctions = 0U;
+    for (i = 0U; i < 3U; i++)
+    {
+        line_core_step(&core, BLACK, WHITE, &out);
+        straight = straight && (0 == out.state.steer);
+    }
+    for (i = 0U; i < 4U; i++)
+    {
+        line_core_step(&core, BLACK, BLACK, &out);
+        junctions += out.evt_junction ? 1U : 0U;
+        if (0U == i)
+        {
+            CHECK("H-LN-28",
+                  out.evt_junction &&
+                      (APP_LINE_EVT_JUNCTION == out.state.event),
+                  "D-37 angled crossbar: JUNCTION on the first both-dark "
+                  "cycle");
+        }
+    }
+    for (i = 0U; i < 3U; i++)
+    {
+        line_core_step(&core, WHITE, BLACK, &out);
+        junctions += out.evt_junction ? 1U : 0U;
+    }
+    straight_cycles(&core, &out, 5U);
+    CHECK("H-LN-29", straight && (1U == junctions),
+          "D-37 angled crossbar: held straight before it, JUNCTION reported "
+          "exactly once");
+
+    /* slow drift: the left sensor slides onto the line through the edge band
+       over many cycles -> no hold, the car steers towards the line */
+    calibrated_core(&core);
+    straight_cycles(&core, &out, 20U);
+    {
+        static uint16_t const ramp[] = {1300U, 1700U, 2000U, 2200U,
+                                        2400U, 2600U, 2800U, 3100U};
+        bool                  held   = false;
+        for (i = 0U; i < (sizeof(ramp) / sizeof(ramp[0])); i++)
+        {
+            line_core_step(&core, ramp[i], WHITE, &out);
+            held = held || out.branch_hold;
+        }
+        CHECK("H-LN-30", !held && (out.state.steer < 0),
+              "D-37 slow drift onto the line: no hold, steers left towards "
+              "it");
+    }
+
+    /* abrupt dark that stays (the line really is there): straight for the
+       hold, then normal steering */
+    calibrated_core(&core);
+    straight_cycles(&core, &out, 20U);
+    straight = true;
+    for (i = 0U; i < hold + 3U; i++)
+    {
+        line_core_step(&core, BLACK, WHITE, &out);
+        if (i < (hold - 1U))
+        {
+            straight = straight && (0 == out.state.steer) && out.branch_hold;
+        }
+    }
+    CHECK("H-LN-31", straight && !out.branch_hold && (out.state.steer < 0),
+          "D-37 dark that persists past the hold is a drift: steering "
+          "resumes");
 }
 
 /* ---- barcode ------------------------------------------------------------- */
@@ -562,6 +693,7 @@ main (void)
 {
     test_line_basic();
     test_line_events();
+    test_line_branch_hold();
     test_barcode_decode();
     test_barcode_state_machine();
     printf("line/barcode host tests: %d passed, %d failed\n", g_pass, g_fail);

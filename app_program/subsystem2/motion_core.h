@@ -19,8 +19,31 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "../shared/app_cal.h"
 #include "../shared/app_data.h"
 #include "../shared/app_motion.h"
+
+/* Wheel speed estimate (29 Oct). With a high-resolution encoder (thousands
+   of edges per wheel rev) the time between two edges jitters by tens of
+   percent - quadrature edges are not evenly spaced - and the speed loop
+   chased that noise (wheels jerking on a straight). When at least
+   APP_CAL_SPEED_WINDOW_MIN_TICKS edges arrived in the last
+   APP_CAL_SPEED_WINDOW_CYCLES cycles the speed is ticks counted over that
+   window; below that (slow wheel, coarse encoder) the edge interval is used
+   as before. APP_CAL_SPEED_WINDOW_CYCLES 0 = interval only (pre-29 Oct). */
+#ifndef APP_CAL_SPEED_WINDOW_CYCLES
+#define APP_CAL_SPEED_WINDOW_CYCLES 5U /* x 10 ms window (max 8) [TBC] */
+#endif
+#ifndef APP_CAL_SPEED_WINDOW_MIN_TICKS
+#define APP_CAL_SPEED_WINDOW_MIN_TICKS 8U /* fewer -> edge interval [TBC] */
+#endif
+#define MC_SPEED_WIN_MAX 8U
+/* FOLLOW steering (29 Oct): at steer +-100 the wheel setpoints are moved
+   apart by this % of the set speed each way (100: outer wheel 2x, inner
+   wheel stopped). 0 = PWM-only steering as before (APP_CAL_STEER_GAIN_Q8). */
+#ifndef APP_CAL_STEER_SPEED_PCT
+#define APP_CAL_STEER_SPEED_PCT 100U /* [TBC, track] */
+#endif
 
 /** Per-cycle inputs read by the task from ISR words and blackboards. */
 typedef struct
@@ -77,6 +100,9 @@ typedef struct
     uint8_t  speed_r_cm_s;
     bool     dir_l_reverse;
     bool     dir_r_reverse;
+    uint8_t  win_l[MC_SPEED_WIN_MAX]; /* |ticks| per cycle, speed window */
+    uint8_t  win_r[MC_SPEED_WIN_MAX];
+    uint8_t  win_idx;
     /* control */
     int32_t  i_l_q8; /* integral terms */
     int32_t  i_r_q8;
@@ -105,5 +131,7 @@ uint32_t motion_core_um_per_tick (void);
 uint32_t motion_core_turn_ticks (uint16_t angle_tenth_deg);
 /** Speed in cm/s from an inter-edge interval in 32 us units (0 -> 0). */
 uint8_t motion_core_speed_from_interval (uint16_t interval_32us);
+/** Speed in cm/s from ticks counted over n_cycles 10 ms cycles. */
+uint8_t motion_core_speed_from_ticks (uint32_t ticks, uint32_t n_cycles);
 
 #endif /* MOTION_CORE_H */
