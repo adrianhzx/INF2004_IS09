@@ -1,4 +1,4 @@
-﻿Debug
+Debug
 Release
 
 # Build artifacts
@@ -15,6 +15,18 @@ build_make/.build_profile
 # to config/wifi_secrets.h and fill in your own network's SSID/password.
 config/wifi_secrets.h
 
+# IS09 car: the real network settings -- never commit these. Copy each
+# config/*.example.h to the same name without ".example" and fill it in.
+config/wifi_credentials.h
+config/mqtt_config.h
+config/network_config.h
+config/tcp_test_config.h
+config/udp_test_config.h
+
+# IS09 car: dashboard logs (runtime data, large) and the push bundle
+MQTT/logs/
+*.bundle
+
 # Videos are shared as unlisted YouTube links (videos/README.md), never committed
 *.mp4
 *.mov
@@ -24,3 +36,7 @@ config/wifi_secrets.h
 
 # macOS
 .DS_Store
+__pycache__/
+# host test program built by make in tests_is09
+tests_is09/test_is09_glue
+tests_is09/test_is09_glue.exe

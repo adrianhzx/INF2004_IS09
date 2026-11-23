@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>IS09 car dashboard</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --ink: #1d2330; --muted: #6b7280; --line: #e3e6ea;
+    --blue: #2563eb; --blue-soft: rgba(37, 99, 235, 0.15); --orange: #d97706; --green: #16a34a;
+    --red: #dc2626; --purple: #7c3aed; --grey: #9ca3af; --teal: #0d9488;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         background: var(--bg); color: var(--ink); }
+  header { position: sticky; top: 0; z-index: 5; background: var(--ink); color: #fff;
+           display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 18px; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; font-weight: 600; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .hstat { font-size: 13px; color: #cbd5e1; }
+  .hstat b { color: #fff; font-weight: 600; }
+  header .spacer { flex: 1; }
+  button { font: inherit; border: 1px solid var(--line); background: #fff; color: var(--ink);
+           border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button:hover { border-color: var(--blue); }
+  button.go { background: var(--green); color: #fff; border-color: var(--green); }
+  button.stop { background: #374151; color: #fff; border-color: #374151; }
+  button.estop { background: var(--red); color: #fff; border-color: var(--red); font-weight: 700; }
+  header button { padding: 4px 12px; }
+  main { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; padding: 14px 18px 30px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+  .card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted);
+             margin: 0 0 10px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; }
+  .c12 { grid-column: span 12; } .c8 { grid-column: span 8; } .c7 { grid-column: span 7; }
+  .c6 { grid-column: span 6; } .c5 { grid-column: span 5; } .c4 { grid-column: span 4; }
+  @media (max-width: 1100px) { .c8, .c7, .c6, .c5, .c4 { grid-column: span 12; } }
+  .kpis { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-bottom: 8px; }
+  .kpi .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 12px; color: var(--muted); }
+  canvas { width: 100%; height: 190px; display: block; }
+  canvas.small { height: 140px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .sw { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 5px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  input[type=text], input[type=number] { font: inherit; padding: 4px 8px; border: 1px solid var(--line); border-radius: 6px; }
+  input[type=number] { width: 80px; }
+  .note { font-size: 12px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; position: sticky; top: 0; background: #fff; }
+  .scroll { max-height: 320px; overflow: auto; }
+  .mono { font-family: ui-monospace, Consolas, "Cascadia Mono", monospace; font-size: 12.5px; }
+  .tag { font-weight: 600; }
+  .barbox { display: flex; gap: 18px; align-items: flex-end; }
+  .vbar { width: 46px; height: 120px; background: #f1f3f5; border: 1px solid var(--line); border-radius: 6px; position: relative; overflow: hidden; }
+  .vbar .fill { position: absolute; left: 0; right: 0; bottom: 0; background: #374151; }
+  .vbar .thr { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--orange); }
+  .vbar-l { text-align: center; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .big { font-size: 46px; font-weight: 700; line-height: 1; }
+  .pattern { display: flex; align-items: stretch; height: 46px; border: 1px solid var(--line); padding: 3px; background: #fff; overflow-x: auto; }
+  .pattern span { display: block; height: 100%; }
+  .scan { display: flex; gap: 6px; align-items: flex-end; height: 70px; }
+  .scan div { flex: 1; background: var(--teal); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .muted { color: var(--muted); }
+  /* 20 Nov: obstacle bypass card */
+  .obwrap { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-start; }
+  #obMap { width: 300px; height: 330px; border: 1px solid var(--line); border-radius: 8px; background: #fafbfc; flex: none; }
+  .obside { flex: 1; min-width: 240px; }
+  .obside table td:first-child { color: var(--muted); width: 48%; }
+  ol.steps { margin: 4px 0 0; padding-left: 20px; font-size: 13px; }
+  ol.steps li { margin: 2px 0; color: var(--muted); }
+  ol.steps li.done { color: var(--ink); }
+  ol.steps li.now { color: var(--blue); font-weight: 600; }
+  ol.steps li .act { color: var(--orange); font-weight: 400; display: block; font-size: 12px; }
+  h3.sub { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 10px 0 2px; font-weight: 600; }
+  .ok { color: var(--green); } .bad { color: var(--red); } .warn { color: var(--orange); }
+</style>
+</head>
+<body>
+<header>
+  <h1>IS09 car</h1>
+  <span id="state" class="pill" style="background:#475569">no data</span>
+  <span class="hstat">link <b id="link">connecting…</b></span>
+  <span class="hstat">car <b id="seen">–</b></span>
+  <span class="hstat">Wi-Fi <b id="rssi">–</b></span>
+  <span class="hstat">faults <b id="faults">–</b></span>
+  <span class="spacer"></span>
+  <button class="go" onclick="send('START')" title="Same as BTN1 in IDLE">START</button>
+  <button class="stop" onclick="send('STOP')" title="End the run (same as BTN1 while driving)">STOP</button>
+  <button class="estop" onclick="send('ESTOP')">E-STOP</button>
+  <button onclick="send('TURN_CAL')" title="IDLE only. Put the car on a straight line: it pivots left slowly, counts line crossings and sets TRACK_WIDTH_MM">TURN_CAL</button>
+  <button onclick="downloadLog()" title="Telemetry as CSV and every message as text">Download log</button>
+  <button onclick="clearAll()">Clear</button>
+</header>
+
+<main>
+  <!-- HUMP / IMU -->
+  <section class="card c8">
+    <h2>Hump detector (IS09 imu_core) <span id="humpState" class="pill" style="background:#e5e7eb">FLAT</span></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kPitch">–</div><div class="l">pitch now (°)</div></div>
+      <div class="kpi"><div class="v" id="kDp">–</div><div class="l">detector pitch (°)</div></div>
+      <div class="kpi"><div class="v" id="kDpRange">–</div><div class="l">detector min / max, last frame</div></div>
+      <div class="kpi"><div class="v" id="kOn">–</div><div class="l">start threshold (°)</div></div>
+      <div class="kpi"><div class="v" id="kLast">–</div><div class="l">last hump</div></div>
+      <div class="kpi"><div class="v" id="kMax">–</div><div class="l">run max (mm)</div></div>
+      <div class="kpi"><div class="v" id="kEp">–</div><div class="l">humps seen</div></div>
+    </div>
+    <canvas id="cPitch"></canvas>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--grey)"></i>pitch now</span>
+      <span><i class="sw" style="background:var(--blue)"></i>detector pitch</span>
+      <span><i class="sw" style="background:var(--blue-soft);height:8px"></i>detector min–max between frames</span>
+      <span><i class="sw" style="background:var(--orange)"></i>± start threshold</span>
+      <span><i class="sw" style="background:var(--green)"></i>hump start</span>
+      <span><i class="sw" style="background:var(--purple)"></i>hump end</span>
+    </div>
+    <div class="row">
+      <label>Start at <input type="number" id="pOn" step="0.5" min="0.5" value="3"> °</label>
+      <label>Level below <input type="number" id="pOff" step="0.5" min="0" value="1.5"> °</label>
+      <label><input type="checkbox" id="pComp" checked> remove start/stop acceleration</label>
+      <button onclick="applyHump()">Apply to car</button>
+      <span class="note">A hump starts when the detector pitch stays above the start threshold for 50 ms.</span>
+    </div>
+  </section>
+
+  <section class="card c4">
+    <h2>Hump events</h2>
+    <div class="scroll" style="max-height:330px"><table><thead><tr><th>time</th><th>event</th><th>detail</th></tr></thead>
+    <tbody id="humpEvents"></tbody></table></div>
+  </section>
+
+  <!-- HUMP HEIGHT, base METHOD -->
+  <section class="card c12">
+    <h2>Hump height (base method, measurement only) <span id="h2State" class="pill" style="background:#e5e7eb">FLAT</span></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="k2Pitch">–</div><div class="l">pitch (°)</div></div>
+      <div class="kpi"><div class="v" id="k2Live">–</div><div class="l">this hump: sum / tilt (mm)</div></div>
+      <div class="kpi"><div class="v" id="k2Last">–</div><div class="l">last hump: sum / tilt (mm)</div></div>
+      <div class="kpi"><div class="v" id="k2Max">–</div><div class="l">run max: sum / tilt (mm)</div></div>
+      <div class="kpi"><div class="v" id="k2N">–</div><div class="l">measured / rejected</div></div>
+      <div class="kpi"><div class="v" id="k2Z">–</div><div class="l">level offset (°)</div></div>
+    </div>
+    <canvas id="cPitch2" class="small"></canvas>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--teal)"></i>pitch every 20 ms (base filter)</span>
+      <span><i class="sw" style="background:rgba(13,148,136,0.22);height:8px"></i>min–max between frames</span>
+      <span><i class="sw" style="background:var(--orange)"></i>± start</span>
+      <span><i class="sw" style="background:var(--grey)"></i>± level</span>
+      <span><i class="sw" style="background:var(--purple)"></i>hump measured</span>
+    </div>
+    <div class="row">
+      <label>Start at <input type="number" id="p2Start" step="0.5" min="0.5" value="2"> °</label>
+      <label>Level below <input type="number" id="p2Level" step="0.5" min="0" value="1"> °</label>
+      <label>Min sum <input type="number" id="p2Min" step="0.5" min="0" value="0.5"> mm</label>
+      <label>Min climb <input type="number" id="p2Climb" step="5" min="0" value="15"> mm</label>
+      <label>Filter alpha <input type="number" id="p2Alpha" step="0.05" min="0.02" max="1" value="0.15"></label>
+      <label>Axle to caster (L) <input type="number" id="p2L" step="1" min="20" value="120"> mm</label>
+      <button onclick="applyHump2()">Apply to car</button>
+    </div>
+    <div class="note" style="margin-top:6px"><b>sum</b> = base height, Σ sin(pitch) × distance. It is the average height under the car, so it reads low on a short hump.
+      <b>tilt</b> = L × sin(pitch), the climb and drop averaged. It is the peak height when the hump is shorter than about 2 × L, but only if L is measured.
+      A smaller filter alpha means less vibration but a lower peak. Base values: start 5, level 3, min 15, alpha 0.3.
+      Each hump gives one event, HUMP2_END (purple line), when the car is past it: the climb must pass the min sum, and both the climb and the drop must be longer than the min climb. Vibration spikes, a climb with no drop, and the jolt when the car stops are only counted as "rejected".
+      The IS09 detector (card above) now posts only humps it counts.</div>
+  </section>
+
+  <!-- MOTION -->
+  <section class="card c6">
+    <h2>Motion <span id="mClass" class="pill" style="background:#e5e7eb">–</span></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kSpd">–</div><div class="l">speed L / R (mm/s)</div></div>
+      <div class="kpi"><div class="v" id="kDuty">–</div><div class="l">duty L / R (%)</div></div>
+      <div class="kpi"><div class="v" id="kDist">–</div><div class="l">distance (mm)</div></div>
+      <div class="kpi"><div class="v" id="kTurn">–</div><div class="l">turn rate (°/s)</div></div>
+    </div>
+    <canvas id="cSpeed" class="small"></canvas>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--blue)"></i>left speed</span>
+      <span><i class="sw" style="background:var(--orange)"></i>right speed</span>
+      <span><i class="sw" style="background:#93c5fd"></i>left duty ×5</span>
+      <span><i class="sw" style="background:#fcd34d"></i>right duty ×5</span>
+    </div>
+  </section>
+
+  <!-- LINE -->
+  <section class="card c6">
+    <h2>Line sensors (IS09 line_core)</h2>
+    <div style="display:flex; gap:22px; flex-wrap:wrap">
+      <div class="barbox">
+        <div><div class="vbar"><div class="fill" id="bL"></div><div class="thr" id="tL"></div></div><div class="vbar-l">LEFT <b id="lL">–</b></div></div>
+        <div><div class="vbar"><div class="fill" id="bC"></div><div class="thr" id="tC"></div></div><div class="vbar-l">CENTRE <b id="lC">–</b></div></div>
+      </div>
+      <div style="flex:1; min-width:240px">
+        <div class="kpis">
+          <div class="kpi"><div class="v" id="kRaw">–</div><div class="l">raw L / C (ADC)</div></div>
+          <div class="kpi"><div class="v" id="kRef">–</div><div class="l">white – black reference</div></div>
+        </div>
+        <canvas id="cLine" class="small"></canvas>
+        <div class="legend">
+          <span><i class="sw" style="background:var(--blue)"></i>LEFT darkness</span>
+          <span><i class="sw" style="background:var(--orange)"></i>CENTRE darkness</span>
+          <span><i class="sw" style="background:var(--grey)"></i>black at 45</span>
+        </div>
+      </div>
+    </div>
+    <h2 style="margin-top:10px">Black seen by each sensor (mm of travel)</h2>
+    <table class="mono" style="width:100%">
+      <thead><tr><th></th><th>now</th><th>last mark: dark</th><th>black</th><th>peak %</th><th>rise</th><th>marks</th></tr></thead>
+      <tbody>
+        <tr><td><b>LEFT</b></td><td id="mkL0">–</td><td id="mkL1">–</td><td id="mkL2">–</td><td id="mkL3">–</td><td id="mkL4">–</td><td id="mkL5">–</td></tr>
+        <tr><td><b>CENTRE</b></td><td id="mkC0">–</td><td id="mkC1">–</td><td id="mkC2">–</td><td id="mkC3">–</td><td id="mkC4">–</td><td id="mkC5">–</td></tr>
+      </tbody>
+    </table>
+    <div class="scroll" style="max-height:150px; margin-top:6px"><table class="mono" style="width:100%">
+      <thead><tr><th>time</th><th>sensor</th><th>dark mm</th><th>black mm</th><th>peak %</th><th>rise mm</th></tr></thead>
+      <tbody id="markRows"></tbody></table></div>
+    <div class="note" style="margin-top:6px">A <b>mark</b> is anything darker than white the sensor passes over: the line's edge, a junction bar, a branch, a barcode bar.
+      <b>dark</b> = mm travelled while darker than white (12 %), <b>black</b> = mm the follower counted as black (45 %), <b>rise</b> = mm from white until it turned black.
+      The sensors straddle the line, so the line alone never darkens both. One sensor black while the other is at least <code>LINE_JUNC_OTHER_PCT</code> (15 %) dark, with that dark patch begun within <code>LINE_JUNC_OTHER_MM</code> (40 mm), counts as a junction (not while a barcode is read).
+      Marks shorter than one frame (~0.2 s) may be missed in the list; "marks" counts them all.</div>
+  </section>
+
+  <!-- BARCODE -->
+  <section class="card c7">
+    <h2>Barcode (analog AO on GP28, base reader)</h2>
+    <div style="display:flex; gap:24px; align-items:flex-start; flex-wrap:wrap">
+      <div><div class="big" id="bcLetter">–</div><div class="note">last letter</div></div>
+      <div style="flex:1; min-width:300px">
+        <div class="kpis">
+          <div class="kpi"><div class="v" id="kAo">–</div><div class="l">AO now</div></div>
+          <div class="kpi"><div class="v" id="kAoRange">–</div><div class="l">AO min / max, last frame</div></div>
+          <div class="kpi"><div class="v" id="kThr">–</div><div class="l">switch levels (white / black side)</div></div>
+        </div>
+        <div class="row" style="margin-top:0">
+          <button onclick="setRef('IR_WHITE_ADC')" title="Hold the barcode sensor over white paper first">Use AO now as white</button>
+          <button onclick="setRef('IR_BLACK_ADC')" title="Hold the barcode sensor over a black bar first">Use AO now as black</button>
+          <span class="note">applies at the next START</span>
+        </div>
+      </div>
+    </div>
+    <canvas id="cAo" class="small" style="margin-top:8px"></canvas>
+    <div class="legend">
+      <span><i class="sw" style="background:rgba(13,148,136,0.25);height:8px"></i>AO min–max between frames</span>
+      <span><i class="sw" style="background:var(--teal)"></i>AO now</span>
+      <span><i class="sw" style="background:var(--orange)"></i>switch levels (from IR_WHITE_ADC / IR_BLACK_ADC)</span>
+    </div>
+    <div class="mono" id="bcDbg" style="margin-top:8px">no barcode window yet</div>
+    <div class="mono note" id="bcLevels"></div>
+    <div class="pattern" id="bcBars" style="margin-top:6px"></div>
+    <div class="mono note" id="bcWidths" style="margin-top:4px; word-break:break-word">widths: –</div>
+    <div class="note">Bars drawn to scale from the measured widths (0.1 mm). For *A*: narrow ≈ 3 mm at 100 %, 1.5 mm at 50 %; wide = 3 × narrow.</div>
+  </section>
+
+  <!-- OBSTACLE -->
+  <section class="card c12">
+    <h2>Ultrasonic and obstacle bypass <span id="obPhase" class="pill" style="background:#e5e7eb">no obstacle yet</span></h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="kObst">–</div><div class="l">ahead now (cm)</div></div>
+      <div class="kpi"><div class="v" id="kSide">–</div><div class="l">bypass side</div></div>
+      <div class="kpi"><div class="v" id="kObW">–</div><div class="l">box width used (cm)</div></div>
+      <div class="kpi"><div class="v" id="kObW0">–</div><div class="l">scan measured (cm)</div></div>
+      <div class="kpi"><div class="v" id="kObW9">–</div><div class="l">IS09 scan width (cm)</div></div>
+      <div class="kpi"><div class="v" id="kObBack">–</div><div class="l">reversed (mm)</div></div>
+      <div class="kpi"><div class="v" id="kObShift">–</div><div class="l">planned sideways (mm)</div></div>
+    </div>
+    <div class="obwrap">
+      <svg id="obMap" viewBox="0 0 300 330"></svg>
+      <div class="obside">
+        <h3 class="sub">What the scan measured</h3>
+        <table id="obBox"><tbody><tr><td colspan="2" class="muted">Waiting for an obstacle scan.</td></tr></tbody></table>
+        <h3 class="sub">Plan (from the scan) and progress</h3>
+        <ol class="steps" id="obPlan"><li>No plan yet.</li></ol>
+        <div class="note" id="obResult" style="margin-top:6px"></div>
+      </div>
+      <div style="width:220px;flex:none">
+        <h3 class="sub">Last coarse sweep</h3>
+        <div class="scan" id="scan"></div>
+        <div class="note" style="display:flex;justify-content:space-between"><span>-60°</span><span>-30°</span><span>0°</span><span>+30°</span><span>+60°</span></div>
+        <div class="note" id="usNote" style="margin-top:6px"></div>
+        <div class="note" style="margin-top:8px">Top view: grey line = the original path, orange = the box (thick lines = the near side and front the car measured; the far side is drawn as a mirror, assuming the box is centred on the line), dashed blue = the plan, green = where the encoders say the car went. Angles and distances are encoder values, so a pivot that really turns more than the encoders say does not show here.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- EVENTS -->
+  <section class="card c8">
+    <h2>Events and replies
+      <span><label class="note"><input type="checkbox" id="hideNoise" checked> hide MOTION_CLASS / BC_W / widths</label>
+      <input type="text" id="filter" placeholder="filter…" style="width:140px"></span></h2>
+    <div class="scroll"><table><thead><tr><th style="width:90px">time</th><th style="width:150px">event</th><th>detail</th></tr></thead>
+    <tbody id="events"></tbody></table></div>
+  </section>
+
+  <!-- COMMANDS -->
+  <section class="card c4">
+    <h2>Commands</h2>
+    <div class="row" style="margin-top:0">
+      <input type="text" id="cmd" placeholder="e.g. SET:LINE_STEER=0.35" style="flex:1; min-width:160px"
+             onkeydown="if(event.key==='Enter')sendTyped()">
+      <button onclick="sendTyped()">Send</button>
+    </div>
+    <div class="row">
+      <button onclick="send('GET:PARAMS')">GET:PARAMS</button>
+      <button onclick="send('PING:' + Date.now() % 100000)">PING</button>
+    </div>
+    <div class="row">
+      <input type="text" id="map" value="A=LEFT,B=RIGHT,C=FWD,D=UTURN,F=UTURN" style="flex:1; min-width:160px">
+      <button onclick="send('MAP:' + document.getElementById('map').value)">Set map</button>
+    </div>
+    <div class="note" style="margin-top:8px">Replies show in the events table. Commands: START, STOP, ESTOP,
+      SET:NAME=VALUE, GET:PARAMS, MAP:..., BARCODE:A (only while following).</div>
+    <div class="note" id="logInfo" style="margin-top:10px"></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const WINDOW_MS = 30000;
+const FAULTS = ["IMU_I2C", "IMU_DEAD", "ENCODER_LOSS", "MOTION_TIMEOUT", "ULTRASONIC", "LINE_LOST",
+  "BYPASS_ABORT", "WATCHDOG", "BATTERY_LOW", "BATTERY_CRIT", "CONFIG", "BARCODE", "TELEMETRY"];
+const STATE_COLOURS = { IDLE: "#475569", LINE_FOLLOWING: "#16a34a", MANEUVER: "#0d9488",
+  OBSTACLE_AVOIDANCE: "#d97706", MISSION_COMPLETE: "#2563eb", EMERGENCY_STOP: "#dc2626", ERROR: "#dc2626" };
+
+let frames = [];          // telemetry frames (robot t) for the charts and the CSV
+let allMsgs = [];         // every message, for the log download
+let humpMarks = [];       // {t, kind:'start'|'end'}
+let hump2Marks = [];      // base method: {t, kind:'start'|'end'}
+let lastT = -1, last = null;
+let widthParts = {};      // BC_W pieces per capture
+
+function fmtT(t) { return (t / 1000).toFixed(2) + " s"; }
+function num(v, d) { return (v === undefined || v === null || isNaN(v)) ? "–" : Number(v).toFixed(d); }
+function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])); }
+
+/* ---- charts ------------------------------------------------------------------ */
+function chart(canvas, opts) {
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  if (canvas.width !== Math.round(w * dpr)) { canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr); }
+  const g = canvas.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, w, h);
+  const L = 40, R = 8, T = 8, B = 20;
+  const t1 = lastT < 0 ? WINDOW_MS : lastT, t0 = t1 - WINDOW_MS;
+  let lo = opts.min, hi = opts.max;
+  if (opts.auto) {
+    for (const s of opts.series) for (const p of s.pts) { if (p[1] < lo) lo = p[1]; if (p[1] > hi) hi = p[1]; }
+  }
+  const X = (t) => L + (t - t0) / (t1 - t0) * (w - L - R);
+  const Y = (v) => T + (hi - v) / (hi - lo) * (h - T - B);
+  g.font = "11px system-ui"; g.fillStyle = "#6b7280"; g.strokeStyle = "#eef0f3"; g.lineWidth = 1;
+  const step = niceStep((hi - lo) / 5);
+  for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-9; v += step) {
+    g.beginPath(); g.moveTo(L, Y(v)); g.lineTo(w - R, Y(v)); g.stroke();
+    g.fillText(String(Math.round(v * 10) / 10), 4, Y(v) + 4);
+  }
+  for (let s = Math.ceil(t0 / 5000) * 5000; s <= t1; s += 5000) {
+    g.fillText((s / 1000).toFixed(0) + "s", X(s) - 8, h - 5);
+  }
+  if (opts.band) {
+    g.fillStyle = opts.band.colour;
+    for (const p of opts.band.pts) {
+      if (p[0] < t0) continue;
+      const x = X(p[0]);
+      g.fillRect(x - 2, Y(p[2]), 4, Math.max(1, Y(p[1]) - Y(p[2])));
+    }
+  }
+  for (const hl of (opts.hlines || [])) {
+    g.strokeStyle = hl.colour; g.setLineDash([5, 4]); g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(L, Y(hl.y)); g.lineTo(w - R, Y(hl.y)); g.stroke(); g.setLineDash([]);
+  }
+  for (const m of (opts.marks || [])) {
+    if (m.t < t0) continue;
+    g.strokeStyle = m.colour; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(X(m.t), T); g.lineTo(X(m.t), h - B); g.stroke();
+  }
+  for (const s of opts.series) {
+    g.strokeStyle = s.colour; g.lineWidth = s.width || 2; g.beginPath();
+    let first = true;
+    for (const p of s.pts) {
+      if (p[0] < t0) continue;
+      const x = X(p[0]), y = Y(Math.max(lo, Math.min(hi, p[1])));
+      if (first) { g.moveTo(x, y); first = false; } else g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+}
+function niceStep(x) {
+  const p = Math.pow(10, Math.floor(Math.log10(Math.max(x, 1e-6)))), f = x / p;
+  return (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * p;
+}
+function series(key, fn) { return frames.map((f) => [f.t, fn(f)]); }
+
+function redraw() {
+  const on = last && last.hump && last.hump.on !== undefined ? last.hump.on : 3;
+  chart($("cPitch"), {
+    min: -8, max: 8, auto: true,
+    series: [
+      { pts: series("p", (f) => f.hump.pitch), colour: "#9ca3af", width: 1.5 },
+      { pts: series("dp", (f) => f.hump.dp ?? f.hump.pitch), colour: "#2563eb", width: 2.5 }],
+    band: { colour: "rgba(37,99,235,0.18)", pts: frames.filter((f) => f.hump.dphi !== undefined).map((f) => [f.t, f.hump.dplo, f.hump.dphi]) },
+    hlines: [{ y: on, colour: "#d97706" }, { y: -on, colour: "#d97706" }],
+    marks: humpMarks.map((m) => ({ t: m.t, colour: m.kind === "start" ? "#16a34a" : "#7c3aed" }))
+  });
+  const p2s = Number($("p2Start").value) || 2, p2l = Number($("p2Level").value) || 1;
+  chart($("cPitch2"), {
+    min: -8, max: 8, auto: true,
+    series: [{ pts: pitchTrace(), colour: "#0d9488", width: 2 }],
+    band: { colour: "rgba(13,148,136,0.22)", pts: frames.filter((f) => f.h2).map((f) => [f.t, f.h2.lo, f.h2.hi]) },
+    hlines: [{ y: p2s, colour: "#d97706" }, { y: -p2s, colour: "#d97706" }, { y: p2l, colour: "#9ca3af" }, { y: -p2l, colour: "#9ca3af" }],
+    marks: hump2Marks.map((m) => ({ t: m.t, colour: m.kind === "start" ? "#16a34a" : "#7c3aed" }))
+  });
+  chart($("cSpeed"), {
+    min: -20, max: 150, auto: true,
+    series: [
+      { pts: series("sl", (f) => f.spd[0]), colour: "#2563eb" },
+      { pts: series("sr", (f) => f.spd[1]), colour: "#d97706" },
+      { pts: series("dl", (f) => f.duty[0] * 5), colour: "#93c5fd", width: 1.5 },
+      { pts: series("dr", (f) => f.duty[1] * 5), colour: "#fcd34d", width: 1.5 }]
+  });
+  const thr = last && last.line && last.line.thr ? last.line.thr : [0, 0];
+  chart($("cAo"), {
+    min: 0, max: 4095,
+    series: [{ pts: frames.map((f) => [f.t, f.line.ir]), colour: "#0d9488", width: 1.5 }],
+    band: { colour: "rgba(13,148,136,0.25)", pts: frames.map((f) => [f.t, f.line.irmn, f.line.irmx]) },
+    hlines: (thr[0] || thr[1]) ? [{ y: thr[0], colour: "#d97706" }, { y: thr[1], colour: "#d97706" }] : []
+  });
+  chart($("cLine"), {
+    min: 0, max: 100,
+    series: [
+      { pts: frames.filter((f) => f.line.lc).map((f) => [f.t, f.line.lc[1]]), colour: "#2563eb" },
+      { pts: frames.filter((f) => f.line.lc).map((f) => [f.t, f.line.lc[3]]), colour: "#d97706" }],
+    hlines: [{ y: 45, colour: "#9ca3af" }]
+  });
+}
+
+/* ---- telemetry --------------------------------------------------------------- */
+function onTelemetry(f) {
+  if (lastT >= 0 && f.t < lastT - 5000) { frames = []; humpMarks = []; hump2Marks = []; lastT = -1; }   // the car restarted
+  if (f.t < lastT - 2000) return;                                   // a stale frame
+  lastT = Math.max(lastT, f.t);
+  frames.push(f);
+  const cut = lastT - WINDOW_MS - 2000;
+  while (frames.length && frames[0].t < cut && frames.length > 600) frames.shift();
+  last = f;
+
+  const st = f.state || "?";
+  $("state").textContent = st;
+  $("state").style.background = STATE_COLOURS[st] || "#475569";
+  $("rssi").textContent = (f.rssi === -100 ? "–" : f.rssi + " dBm") + (f.buf ? " (" + f.buf + " queued)" : "");
+  const names = FAULTS.filter((n, i) => (f.faults >> i) & 1);
+  $("faults").textContent = names.length ? names.join(" ") : "none";
+  $("faults").className = names.length ? "bad" : "";
+
+  const h = f.hump || {};
+  $("kPitch").textContent = num(h.pitch, 1);
+  $("kDp").textContent = num(h.dp, 1);
+  $("kDpRange").textContent = h.dplo === undefined ? "–" : num(h.dplo, 1) + " / " + num(h.dphi, 1);
+  $("kOn").textContent = h.on === undefined ? "–" : num(h.on, 1);
+  $("kLast").textContent = (h.lq && h.lq !== "-") ? h.lq + " " + h.lh + " mm" : "–";
+  $("kMax").textContent = num(h.max, 0);
+  $("kEp").textContent = h.n ?? "–";
+  const hs = h.st || "FLAT";
+  $("humpState").textContent = hs;
+  $("humpState").style.background = hs === "FLAT" ? "#e5e7eb" : (hs === "CLIMBING" ? "#bbf7d0" : "#ddd6fe");
+
+  const h2 = f.h2;
+  if (h2) {
+    $("k2Pitch").textContent = num(h2.p, 1);
+    $("k2Live").textContent = h2.st === "FLAT" ? "–" : num(h2.h, 1) + " / " + num(h2.tl, 1);
+    $("k2Last").textContent = h2.n ? num(h2.lh, 1) + " / " + num(h2.lt, 1) : "–";
+    $("k2Max").textContent = h2.n ? num(h2.mh, 1) + " / " + num(h2.mt, 1) : "–";
+    $("k2N").textContent = h2.n + " / " + h2.r;
+    $("k2Z").textContent = num(h2.z, 1);
+    $("h2State").textContent = h2.st;
+    $("h2State").style.background = h2.st === "FLAT" ? "#e5e7eb" : (h2.st === "DESCENT" ? "#ddd6fe" : "#bbf7d0");
+  }
+
+  $("kSpd").textContent = num(f.spd[0], 0) + " / " + num(f.spd[1], 0);
+  $("kDuty").textContent = num(f.duty[0], 0) + " / " + num(f.duty[1], 0);
+  $("kDist").textContent = num(f.dist, 0);
+  $("kTurn").textContent = num(f.imu.tr, 0);
+  $("mClass").textContent = f.imu.ev;
+
+  const lc = f.line.lc;
+  if (lc) {
+    setBar("bL", "lL", lc[1], f.line.l);
+    setBar("bC", "lC", lc[3], f.line.r);
+    $("kRaw").textContent = lc[0] + " / " + lc[2];
+  }
+  if (lc && lc.length >= 6) $("kRef").textContent = lc[4] + " – " + lc[5];
+  if (f.line.mk) showMarks(f.t, f.line.mk);
+  $("kAo").textContent = f.line.ir;
+  $("kAoRange").textContent = f.line.irmn + " / " + f.line.irmx;
+  if (f.line.thr) $("kThr").textContent = (f.line.thr[0] || f.line.thr[1]) ? f.line.thr[1] + " / " + f.line.thr[0] : "off";
+  if (f.bc) $("bcLetter").textContent = f.bc;
+
+  if (f.state === "OBSTACLE_AVOIDANCE" && f.obst.p) { ob.path.push(f.obst.p); obDraw(); }
+  $("kObst").textContent = f.obst.cm < 0 ? "no echo" : num(f.obst.cm, 0);
+  $("kSide").textContent = f.obst.side || "–";
+  $("scan").innerHTML = f.obst.scan.map((v) => `<div style="height:${Math.max(2, Math.min(70, v < 0 ? 70 : v))}px" title="${v} cm"></div>`).join("");
+  $("usNote").textContent = (f.obst.cm === -1 && (f.state === "LINE_FOLLOWING" || f.state === "IDLE"))
+    ? "No echo: nothing in range (about 2-400 cm), the sensor is not wired, or the ultrasonic is off (APP_CAL_ECHO_SHIFTER_VERIFIED 0, or US_IDLE_PING 0 in IDLE)."
+    : (f.state === "IDLE" ? "Bench mode: the car pings every 0.2 s in IDLE. It only stops for obstacles while line following (25 cm)." : "");
+}
+function setBar(bar, lab, n, black) {
+  $(bar).style.height = n + "%";
+  $(bar).style.background = black ? "#111827" : "#9ca3af";
+  $(lab).textContent = n + (black ? " ■" : " □");
+  const thr = bar === "bL" ? "tL" : "tC";
+  $(thr).style.bottom = "45%";
+}
+
+/* ---- events ------------------------------------------------------------------ */
+function onEvent(e, topic) {
+  const name = e.event || (topic.endsWith("ack") ? "ACK " + (e.cmd || "") : topic);
+  const detail = e.detail !== undefined ? e.detail : (e.result !== undefined ? e.result + rest(e) : JSON.stringify(e));
+  const t = e.t !== undefined ? e.t : lastT;
+  if (name === "HUMP_START") humpMarks.push({ t, kind: "start" });
+  if (name === "HUMP_END") humpMarks.push({ t, kind: "end" });
+  if (name === "HUMP2_START") hump2Marks.push({ t, kind: "start" });
+  if (name === "HUMP2_END") hump2Marks.push({ t, kind: "end" });
+  // humps only (19 Nov): MOTION_CLASS CLIMBING / DESCENDING stays in the event list, as the stop jolt also reads CLIMBING
+  if (name.startsWith("HUMP") || name === "COLLISION") {
+    addRow("humpEvents", t, name, detail, 200);
+  }
+  if (name === "BC_DBG") onBcDbg(detail);
+  if (name === "BC_PAT") showPattern(detail);
+  if (name === "BC_W") collectWidths(detail);
+  if (name === "BARCODE") $("bcLetter").textContent = detail.charAt(0);
+  obEvent(name, detail);
+  const noisy = name === "MOTION_CLASS" || name === "BC_W" || (name === "BC_DBG" && /^w\d|^levels/.test(detail));
+  if (noisy && $("hideNoise").checked) return;
+  const flt = $("filter").value.trim().toUpperCase();
+  if (flt && !(name + " " + detail).toUpperCase().includes(flt)) return;
+  addRow("events", t, name, detail, 400);
+}
+// ---- 20 Nov: obstacle bypass: what was measured, the plan, each step ----
+let ob = obNew();
+function obNew() { return { phase: "", trig: null, is09: null, prof: null, box: null, plan: null, back: 0, steps: [], path: [], result: "", resCls: "", edge: null, edgeNote: "", side: null }; }
+function kv(s) { const o = {}; s.split(/\s+/).forEach((p) => { const m = p.match(/^(\w+)=(-?[\w.]+)$/); if (m) o[m[1]] = isNaN(m[2]) ? m[2] : Number(m[2]); }); return o; }
+function obEvent(name, d) {
+  let m;
+  if (name === "OBSTACLE") { ob = obNew(); m = d.match(/at (\d+) cm/); ob.trig = m ? +m[1] : null; ob.phase = "stopped, scanning"; }
+  else if (name === "IS09_PROFILE") {
+    m = d.match(/IS09 (\w+) closest (\d+)cm at (-?\d+) w (\d+)cm edges (-?\d+)\/(-?\d+)/);
+    if (m) ob.is09 = { act: m[1], r: +m[2], at: +m[3], w: +m[4], el: +m[5], er: +m[6] };
+  }
+  else if (name === "OBSTACLE_PROFILE") {
+    m = d.match(/r (\d+)cm w (\d+)cm off (-?\d+) clrL (\d+) clrR (\d+) side (\S)/);
+    if (m) ob.prof = { r: +m[1], w: +m[2], off: +m[3], cL: +m[4], cR: +m[5], side: m[6] };
+  }
+  else if (name === "OBSTACLE_BACKOFF") { m = d.match(/reversing (\d+) mm/); if (m) ob.back += +m[1]; ob.steps.push({ txt: "reverse " + (m ? m[1] : "?") + " mm first" + d.replace(/^[^:]*/, ""), st: "done" }); ob.phase = "reversing"; }
+  else if (name === "OBSTACLE_RESCAN") { ob.back += 100; ob.steps.push({ txt: d, st: "done", act: true }); ob.phase = "rescan"; }
+  else if (name === "OBST_BOX") { ob.box = kv(d); }
+  else if (name === "OBST_EDGE") { if (/^x=/.test(d)) ob.edge = kv(d); else ob.edgeNote = d; }
+  else if (name === "OBST_SIDE") { ob.side = kv(d); }
+  else if (name === "BYPASS_PLAN") { ob.plan = kv(d); ob.steps = ob.steps.filter((s) => s.st === "done").map((s) => Object.assign({}, s, { n: undefined, txt: s.n ? "earlier try: " + (s.live || s.txt) : s.txt, live: undefined })); obPlanSteps(); ob.phase = "bypass on the " + (ob.plan.side === "R" ? "right" : "left"); ob.path = []; }
+  else if (name === "BYPASS_STEP") {
+    m = d.match(/^(\d+) (.*)$/);
+    if (m) { const n = +m[1]; ob.steps.forEach((s) => { if (s.n && s.n < n) s.st = "done"; });
+      const s = ob.steps.find((x) => x.n === n); if (s) { s.st = "now"; s.live = m[2]; } else ob.steps.push({ n, txt: m[2], st: "now" }); ob.phase = "step " + n; }
+  }
+  else if (["BYPASS_EXTEND", "BYPASS_BLOCKED", "BYPASS_RETRY", "BYPASS_RETURN", "OBSTACLE_TIE"].includes(name)) {
+    const cur = ob.steps.find((s) => s.st === "now"); if (cur) (cur.notes = cur.notes || []).push(d); else ob.steps.push({ txt: d, st: "done", act: true });
+    if (name === "BYPASS_BLOCKED") ob.phase = "blocked, backing out";
+  }
+  else if (name === "BYPASS_COMPLETE") { ob.steps.forEach((s) => { s.st = "done"; }); ob.result = "Done: " + d; ob.resCls = "ok"; ob.phase = "done"; }
+  else if (name === "OBSTACLE_CLEARED") { ob.result = d; ob.resCls = "ok"; ob.phase = "cleared"; }
+  else if (name === "AVOIDANCE_ABORT") { ob.result = "Gave up: " + d; ob.resCls = "bad"; ob.phase = "aborted"; }
+  else return;
+  obShow();
+}
+function obPlanSteps() {
+  const p = ob.plan, lr = (deg) => Math.abs(deg) + "° " + (deg < 0 ? "left" : "right");
+  const away = p.side === "R" ? "right" : "left";
+  ob.steps.push(
+    { n: 1, txt: "pivot " + lr(p.t1) + ", away from the box", st: "todo" },
+    p.me === 1 ? { n: 2, txt: "diagonal: out until the sensor, pointing along the path, passes the box edge; then on until the car clears it by the margin", st: "todo" }
+               : { n: 2, txt: "forward " + p.d1 + " mm on the diagonal (ends " + p.sh + " mm " + away + " of the path)", st: "todo" },
+    { n: 3, txt: "pivot " + lr(p.t2) + ", parallel to the path", st: "todo" },
+    { n: 4, txt: p.me === 1 ? "along the box side, measuring the side gap and where the box ends" : "along the box side: at least " + p.d2 + " mm, more while the side is still there", st: "todo" },
+    { n: 5, txt: "look before turning back (pivot 30° towards the box and ping)", st: "todo" },
+    { n: 6, txt: "pivot " + lr(p.t3) + ", back towards the path", st: "todo" },
+    { n: 7, txt: "return on the diagonal (up to " + p.ret + " mm) until a line sensor sees the line", st: "todo" },
+    { n: 8, txt: "line found: axle onto the line, then parallel to the path", st: "todo" });
+}
+function obShow() {
+  const pill = $("obPhase");
+  pill.textContent = ob.phase || "no obstacle yet";
+  pill.style.background = ob.resCls === "bad" ? "#fecaca" : ob.resCls === "ok" ? "#bbf7d0" : ob.phase ? "#fde68a" : "#e5e7eb";
+  const b = ob.box, p = ob.prof, i9 = ob.is09;
+  const meas = ob.side && ob.side.w2 !== undefined ? ob.side.w2 : ob.edge ? ob.edge.w2 : null;
+  $("kObW").textContent = meas !== null ? (meas / 10).toFixed(0) : (ob.plan && ob.plan.me === 1) ? "measuring" : b ? b.w : p ? p.w : "–";
+  $("kObW9").textContent = i9 ? i9.w : "–";
+  $("kObW0").textContent = b && b.w0 !== undefined ? b.w0 : "–";
+  $("kObBack").textContent = ob.back ? ob.back : (ob.phase ? "0" : "–");
+  $("kObShift").textContent = ob.plan ? ob.plan.sh : "–";
+  const rows = [];
+  if (ob.trig !== null) rows.push(["stopped at", ob.trig + " cm (25 cm stop distance)"]);
+  if (p) {
+    rows.push(["closest point", p.r + " cm ahead of the sensor"]);
+    rows.push(["box centre", Math.abs(p.off) + " cm " + (p.off < 0 ? "left" : "right") + " of the car's centre line"]);
+  }
+  if (ob.edge) {
+    const lr = Math.abs(ob.edge.x) + " mm " + (ob.edge.x < 0 ? "left" : "right") + " of the line";
+    if (ob.edge.un === 1) rows.push(["near edge (ASSUMED)", lr + ": the sensor never saw the box along the path (box narrower than ~11 cm, or its face is turned), so the edge is taken 50 mm beyond the sensor"]);
+    else rows.push(["near edge (measured driving)", lr + " (" + ob.edge.seen + " pings on the box)"]);
+    rows.push(["box front", ob.edge.face + " mm ahead of where the bypass started" + (ob.edge.seen >= 3 ? " (measured)" : " (from the scan)") + "; scan said " + ob.edge.fs]);
+  } else if (ob.edgeNote) rows.push(["near edge", ob.edgeNote]);
+  if (ob.side) {
+    rows.push(["side gap (side pass)", ob.side.gap + " mm from the sensor; box side " + Math.abs(ob.side.x) + " mm " + (ob.side.x < 0 ? "left" : "right") + " of the line"]);
+    rows.push(["box depth (measured)", ob.side.depth + " mm"]);
+  }
+  if (meas !== null) rows.push([ob.edge && ob.edge.un === 1 && !ob.side ? "box width (upper limit)" : "box width (measured)", "about " + meas + " mm: twice the near edge's distance from the line, so it assumes the box sits centred on the line"]);
+  if (b && ob.plan && ob.plan.me === 1) rows.push(["front scan width", (b.w0 !== undefined ? b.w0 : b.w) + " cm: not used, the beam is wider than the box"]);
+  else if (b && b.w0 !== undefined && b.w0 !== b.w) rows.push(["box width", "scan measured " + b.w0 + " cm; using " + b.w + " cm (OBST_WIDTH_CM: the beam is wider than the box)"]);
+  else if (b) rows.push(["box width", b.w + " cm (as scanned)"]);
+  else if (p) rows.push(["box width", p.w + " cm"]);
+  if (b && !(ob.plan && ob.plan.me === 1)) rows.push(["box edges used", "left " + edge(b.xl) + ", right " + edge(b.xr)]);
+  if (i9) rows.push(["IS09 scan", i9.w + " cm wide, edges " + edge(i9.el) + " / " + edge(i9.er) + ", closest " + i9.r + " cm at " + i9.at + "°, says " + i9.act]);
+  if (p) rows.push(["free space beside it", "left " + clr(p.cL) + ", right " + clr(p.cR)]);
+  if (b && !ob.side) rows.push(["box depth", b.d + " mm (assumed until the side pass measures it)"]);
+  if (p) rows.push(["side chosen", p.side === "R" ? "right" : p.side === "L" ? "left" : "none"]);
+  if (ob.plan) rows.push(["side margin used", ob.plan.m + " mm (car half width is added on top)"]);
+  if (rows.length) $("obBox").innerHTML = "<tbody>" + rows.map((r) => `<tr><td>${esc(r[0])}</td><td>${esc(r[1])}</td></tr>`).join("") + "</tbody>";
+  $("obPlan").innerHTML = ob.steps.length ? ob.steps.map((s) => `<li class="${s.st === "now" ? "now" : s.st === "done" ? "done" : ""}">${s.st === "done" ? "✓ " : s.st === "now" ? "▶ " : ""}${esc(s.live || s.txt)}${(s.notes || []).map((n) => `<span class="act">${esc(n)}</span>`).join("")}</li>`).join("") : "<li>No plan yet.</li>";
+  $("obResult").innerHTML = ob.result ? `<span class="${ob.resCls}">${esc(ob.result)}</span>` : "";
+  obDraw();
+}
+function edge(cm) { return Math.abs(cm) + " cm " + (cm < 0 ? "left" : "right"); }
+function clr(cm) { return cm >= 200 ? "open (no echo)" : cm + " cm"; }
+function obPlanPath() {
+  const p = ob.plan; if (!p) return [];
+  const pts = [[0, 0]]; let x = 0, y = 0, h = 0;
+  const go = (mm) => { x += mm * Math.sin(h * Math.PI / 180); y += mm * Math.cos(h * Math.PI / 180); pts.push([x, y]); };
+  h += p.t1; go(p.d1); h = 0; go(p.d2);
+  h = p.side === "R" ? -45 : 45; go(Math.abs(x) / Math.sin(Math.PI / 4));
+  return pts;
+}
+function obDraw() {
+  const svg = $("obMap"); if (!svg) return;
+  const b = ob.box, plan = obPlanPath(), path = ob.path.map((q) => [q[0], q[1]]);
+  const pts = [[0, -60], [0, 300]].concat(plan, path);
+  let box = null, mbox = null;
+  if (ob.edge) {
+    const near = ob.side ? ob.side.x : ob.edge.x, y0 = ob.edge.face, y1 = ob.side ? ob.side.back : y0 + (b ? b.d : 150);
+    mbox = { x0: Math.min(near, -near), x1: Math.max(near, -near), y0, y1, nearX: near };
+    pts.push([mbox.x0, y0], [mbox.x1, y1]);
+  } else if (b) { const y0 = b.r * 10 + b.ua; box = { x0: b.xl * 10, x1: b.xr * 10, y0, y1: y0 + b.d }; pts.push([box.x0, box.y0], [box.x1, box.y1]); }
+  let xmin = Math.min(...pts.map((q) => q[0])) - 120, xmax = Math.max(...pts.map((q) => q[0])) + 120;
+  let ymin = Math.min(...pts.map((q) => q[1])) - 80, ymax = Math.max(...pts.map((q) => q[1])) + 80;
+  const W = 300, H = 330, k = Math.min(W / (xmax - xmin), H / (ymax - ymin));
+  const cx = (W - k * (xmax - xmin)) / 2, cy = (H - k * (ymax - ymin)) / 2;
+  const X = (x) => cx + (x - xmin) * k, Y = (y) => H - cy - (y - ymin) * k;
+  let s = "";
+  for (let g = Math.ceil(ymin / 100) * 100; g <= ymax; g += 100) s += `<line x1="0" x2="${W}" y1="${Y(g)}" y2="${Y(g)}" stroke="#eef0f3"/>`;
+  s += `<line x1="${X(0)}" x2="${X(0)}" y1="${Y(ymin)}" y2="${Y(ymax)}" stroke="#9ca3af" stroke-width="4" opacity=".5"/>`;
+  if (box) s += `<rect x="${X(box.x0)}" y="${Y(box.y1)}" width="${(box.x1 - box.x0) * k}" height="${(box.y1 - box.y0) * k}" fill="rgba(217,119,6,.18)" stroke="#d97706" stroke-dasharray="0" /><text x="${X((box.x0 + box.x1) / 2)}" y="${Y(box.y0) + 13}" font-size="11" text-anchor="middle" fill="#92400e">${b.w} cm</text>`;
+  if (mbox) {
+    s += `<rect x="${X(mbox.x0)}" y="${Y(mbox.y1)}" width="${(mbox.x1 - mbox.x0) * k}" height="${(mbox.y1 - mbox.y0) * k}" fill="rgba(217,119,6,.15)" stroke="#d97706" stroke-dasharray="4 3"/>`;
+    s += `<line x1="${X(mbox.nearX)}" x2="${X(mbox.nearX)}" y1="${Y(mbox.y0)}" y2="${Y(mbox.y1)}" stroke="#b45309" stroke-width="3"/>`;
+    s += `<line x1="${X(mbox.x0)}" x2="${X(mbox.x1)}" y1="${Y(mbox.y0)}" y2="${Y(mbox.y0)}" stroke="#b45309" stroke-width="3"/>`;
+    s += `<text x="${X((mbox.x0 + mbox.x1) / 2)}" y="${Y(mbox.y0) + 13}" font-size="11" text-anchor="middle" fill="#92400e">measured: ${Math.round(mbox.x1 - mbox.x0)} mm</text>`;
+  }
+  if (plan.length > 1 && !(ob.plan && ob.plan.me === 1)) s += `<polyline points="${plan.map((q) => X(q[0]) + "," + Y(q[1])).join(" ")}" fill="none" stroke="#2563eb" stroke-width="2" stroke-dasharray="5 4"/>`;
+  if (path.length > 1) s += `<polyline points="${path.map((q) => X(q[0]) + "," + Y(q[1])).join(" ")}" fill="none" stroke="#16a34a" stroke-width="2.5"/>`;
+  const c = ob.path.length ? ob.path[ob.path.length - 1] : [0, 0, 0];
+  const a = c[2] * Math.PI / 180, r = 9;
+  s += `<polygon points="${X(c[0]) + r * Math.sin(a)},${Y(c[1]) - r * Math.cos(a)} ${X(c[0]) + r * Math.sin(a + 2.5)},${Y(c[1]) - r * Math.cos(a + 2.5)} ${X(c[0]) + r * Math.sin(a - 2.5)},${Y(c[1]) - r * Math.cos(a - 2.5)}" fill="#111827"/>`;
+  s += `<text x="6" y="${H - 6}" font-size="10" fill="#6b7280">grid 100 mm · triangle = the car now (bypass starts at 0,0)</text>`;
+  svg.innerHTML = s;
+}
+function rest(e) {
+  const o = Object.assign({}, e); delete o.cmd; delete o.result;
+  const s = JSON.stringify(o); return s === "{}" ? "" : " " + s;
+}
+// 19 Nov: black seen by each line sensor, f.line.mk = [[n, dark, black, peak, rise, now] LEFT, [...] CENTRE]
+let markN = [-1, -1];
+function showMarks(t, mk) {
+  ["L", "C"].forEach((s, i) => {
+    const m = mk[i];
+    if (!m) return;
+    $("mk" + s + "0").textContent = m[5] > 0 ? num(m[5], 1) : "white";
+    $("mk" + s + "1").textContent = m[0] ? num(m[1], 1) : "–";
+    $("mk" + s + "2").textContent = m[0] ? num(m[2], 1) : "–";
+    $("mk" + s + "3").textContent = m[0] ? m[3] : "–";
+    $("mk" + s + "4").textContent = m[0] ? (m[2] > 0 ? num(m[4], 1) : "never black") : "–";
+    $("mk" + s + "5").textContent = m[0];
+    if (markN[i] >= 0 && m[0] > markN[i]) {
+      const skipped = m[0] - markN[i] - 1;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${fmtT(t)}</td><td>${i ? "CENTRE" : "LEFT"}${skipped ? " (+" + skipped + " missed)" : ""}</td>` +
+        `<td>${num(m[1], 1)}</td><td>${num(m[2], 1)}</td><td>${m[3]}</td><td>${m[2] > 0 ? num(m[4], 1) : "never black"}</td>`;
+      const tb = $("markRows");
+      tb.insertBefore(tr, tb.firstChild);
+      while (tb.children.length > 40) tb.removeChild(tb.lastChild);
+    }
+    markN[i] = m[0];
+  });
+}
+function addRow(id, t, name, detail, max) {
+  const tb = $(id), tr = document.createElement("tr");
+  const colour = /FAULT|ERROR|EMERGENCY|ABORT|COLLISION|LOST/.test(name) ? "var(--red)"
+    : /HUMP|BARCODE/.test(name) ? "var(--blue)" : "inherit";
+  tr.innerHTML = `<td class="mono">${t >= 0 ? fmtT(t) : ""}</td><td class="tag" style="color:${colour}">${esc(name)}</td><td class="mono">${esc(detail)}</td>`;
+  tb.insertBefore(tr, tb.firstChild);
+  while (tb.children.length > max) tb.removeChild(tb.lastChild);
+}
+function showPattern(text) {
+  $("bcDbg").textContent = "IS09 pattern: " + text;
+  const pat = text.split(" bc=")[0].replace(/ /g, "");
+  if (!/^[nw?]+$/.test(pat)) { $("bcBars").innerHTML = ""; return; }
+  $("bcBars").innerHTML = [...pat].map((c, i) => {
+    const wpx = c === "w" ? 15 : 5, bar = (i % 2) === 0;
+    return `<span style="width:${wpx}px;background:${c === "?" ? "#fca5a5" : bar ? "#111827" : "#fff"}"></span>`;
+  }).join("");
+}
+let w02 = [];
+function onBcDbg(d) {
+  if (/^w\d+ \(0\.1mm/.test(d)) {                 // base widths, up to 6 lines
+    if (d.startsWith("w1 ")) w02 = [];
+    w02 = w02.concat(d.split(":")[1].trim().split(/\s+/).map(Number));
+    $("bcWidths").textContent = "widths (0.1 mm, bar first, " + w02.length + "): " + w02.join(" ");
+    drawWidths(w02);
+  } else if (d.startsWith("levels")) {
+    $("bcLevels").textContent = d;
+  } else {
+    $("bcDbg").textContent = d;
+    if (d.startsWith("n=")) $("bcLevels").textContent = "";
+  }
+}
+function drawWidths(w) {
+  const total = w.reduce((a, b) => a + b, 0) || 1;
+  const px = Math.max(300, $("bcBars").clientWidth - 10);
+  $("bcBars").innerHTML = w.map((v, i) =>
+    `<span title="${(v / 10).toFixed(1)} mm" style="width:${Math.max(1, v / total * px)}px;background:${i % 2 === 0 ? "#111827" : "#fff"}"></span>`).join("");
+}
+function setRef(name) {
+  if (!last) return;
+  send("SET:" + name + "=" + last.line.ir);
+}
+function collectWidths(text) {
+  const m = text.match(/^#(\d+) (\d+)\/(\d+)(.*)$/);
+  if (!m) return;
+  const cap = m[1], i = +m[2], n = +m[3];
+  widthParts[cap] = widthParts[cap] || [];
+  widthParts[cap][i - 1] = m[4];
+  if (widthParts[cap].filter((x) => x !== undefined).length === n) {
+    $("bcWidths").textContent = "widths #" + cap + " (ms, bar first): " + widthParts[cap].join("");
+    widthParts = {};
+  }
+}
+
+/* ---- link ------------------------------------------------------------------- */
+function connect() {
+  const es = new EventSource("/events");
+  es.onopen = () => { $("link").textContent = "dashboard OK"; $("link").className = "ok"; };
+  es.onerror = () => { $("link").textContent = "dashboard server not running"; $("link").className = "bad"; };
+  es.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.kind === "info") {
+      $("seen").textContent = m.robot_age < 0 ? "never" : (m.robot_age < 2 ? "live " + m.robot_peer : Math.round(m.robot_age) + " s ago");
+      $("seen").className = m.robot_age >= 0 && m.robot_age < 2 ? "ok" : "warn";
+      $("logInfo").textContent = m.log ? "Laptop log file: " + m.log : "";
+      return;
+    }
+    allMsgs.push(m);
+    if (allMsgs.length > 50000) allMsgs.shift();
+    if (m.kind === "sys") { addRow("events", lastT, "broker", m.payload, 400); return; }
+    if (m.kind === "sent") { addRow("events", lastT, "SENT " + m.topic, m.payload, 400); return; }
+    let obj = null;
+    try { obj = JSON.parse(m.payload); } catch (e) { obj = null; }
+    if (m.topic.endsWith("/telemetry") && obj) onTelemetry(obj);
+    else if ((m.topic.endsWith("/event") || m.topic.endsWith("/ack")) && obj) onEvent(obj, m.topic);
+    else if (!m.topic.endsWith("/status")) addRow("events", lastT, m.topic, m.payload, 400);
+  };
+}
+
+function send(text, topic) {
+  fetch("/publish", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ topic: topic || "is09/cmd", payload: text }) });
+}
+function sendTyped() { const v = $("cmd").value.trim(); if (v) send(v); }
+function applyHump() {
+  send("SET:HUMP_ON_DEG=" + $("pOn").value);
+  setTimeout(() => send("SET:HUMP_OFF_DEG=" + $("pOff").value), 150);
+  setTimeout(() => send("SET:IMU_ACCEL_COMP=" + ($("pComp").checked ? 1 : 0)), 300);
+}
+// the 20 ms base pitch samples ("h2.ps", 0.1 deg); older firmware: one point per frame
+function pitchTrace() {
+  const pts = [];
+  for (const f of frames) {
+    if (!f.h2) continue;
+    if (!f.h2.ps) { pts.push([f.t, f.h2.p]); continue; }
+    const n = f.h2.ps.length;
+    f.h2.ps.forEach((v, i) => pts.push([f.t - (n - 1 - i) * 20, v / 10]));
+  }
+  return pts;
+}
+function applyHump2() {
+  const sets = [["HUMP2_START_DEG", "p2Start"], ["HUMP2_LEVEL_DEG", "p2Level"], ["HUMP2_MIN_MM", "p2Min"],
+    ["HUMP2_MIN_CLIMB_MM", "p2Climb"], ["HUMP2_ALPHA", "p2Alpha"], ["HUMP_WHEELBASE_MM", "p2L"]];
+  sets.forEach(([name, id], i) => setTimeout(() => send("SET:" + name + "=" + $(id).value), i * 150));
+}
+function clearAll() { ob = obNew(); obShow(); frames = []; humpMarks = []; hump2Marks = []; lastT = -1; $("events").innerHTML = ""; $("humpEvents").innerHTML = ""; $("markRows").innerHTML = ""; redraw(); }
+
+function downloadLog() {
+  const keys = ["t", "state", "spdL", "spdR", "dutyL", "dutyR", "dist", "pitch", "dp", "dplo", "dphi", "humpSt",
+    "lineL", "lineR", "rawL", "nL", "rawC", "nC", "ao", "aoMin", "aoMax", "class", "turn", "obst", "faults",
+    "p2", "p2lo", "p2hi", "h2St", "h2Sum", "h2Tilt", "h2LastSum", "h2LastTilt"];
+  const rows = [keys.join(",")];
+  for (const m of allMsgs) {
+    if (!m.topic || !m.topic.endsWith("/telemetry")) continue;
+    let f; try { f = JSON.parse(m.payload); } catch (e) { continue; }
+    const lc = f.line.lc || ["", "", "", ""], h = f.hump || {}, h2 = f.h2 || {};
+    rows.push([f.t, f.state, f.spd[0], f.spd[1], f.duty[0], f.duty[1], f.dist, h.pitch, h.dp, h.dplo, h.dphi, h.st,
+      f.line.l, f.line.r, lc[0], lc[1], lc[2], lc[3], f.line.ir, f.line.irmn, f.line.irmx, f.imu.ev, f.imu.tr, f.obst.cm, f.faults,
+      h2.p, h2.lo, h2.hi, h2.st, h2.h, h2.tl, h2.lh, h2.lt].join(","));
+  }
+  save("telemetry_" + stamp() + ".csv", rows.join("\n"));
+  // the 20 ms hump pitch trace, with the distance interpolated between frames
+  const tr = ["t_ms,dist_mm,pitch_deg,state"];
+  let prev = null;
+  for (const m of allMsgs) {
+    if (!m.topic || !m.topic.endsWith("/telemetry")) continue;
+    let f; try { f = JSON.parse(m.payload); } catch (e) { continue; }
+    if (!f.h2 || !f.h2.ps) { prev = f; continue; }
+    const n = f.h2.ps.length;
+    f.h2.ps.forEach((v, i) => {
+      const t = f.t - (n - 1 - i) * 20;
+      let d = f.dist;
+      if (prev && f.t > prev.t && t > prev.t) d = prev.dist + (f.dist - prev.dist) * (t - prev.t) / (f.t - prev.t);
+      tr.push([t, d.toFixed(1), (v / 10).toFixed(1), f.state].join(","));
+    });
+    prev = f;
+  }
+  if (tr.length > 1) setTimeout(() => save("pitch_trace_" + stamp() + ".csv", tr.join("\n")), 300);
+  const lines = allMsgs.map((m) => new Date(m.ts).toTimeString().slice(0, 8) + " " + (m.topic || m.kind) + " " + m.payload);
+  save("messages_" + stamp() + ".txt", lines.join("\n"));
+}
+function save(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+function stamp() { const d = new Date(); return d.toISOString().slice(0, 19).replace(/[:T]/g, "-"); }
+
+connect();
+setInterval(redraw, 200);
+window.addEventListener("resize", redraw);
+</script>
+</body>
+</html>

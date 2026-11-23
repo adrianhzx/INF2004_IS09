@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /* Minimal cyw43-driver environment for the micro T-Kernel polling port. */
 #ifndef CYW43_CONFIGPORT_UTK_H
 #define CYW43_CONFIGPORT_UTK_H

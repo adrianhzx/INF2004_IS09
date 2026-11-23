@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef _TUSB_CONFIG_H_
 #define _TUSB_CONFIG_H_
 

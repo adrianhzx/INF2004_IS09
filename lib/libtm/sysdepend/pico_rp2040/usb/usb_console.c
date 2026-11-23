@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
  *	usb_console.c
  *	USB CDC-ACM backend for the T-Monitor console (RaspberryPi Pico / Pico W)
  *

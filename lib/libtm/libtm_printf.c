@@ -34,21 +34,28 @@
 #if USE_TM_PRINTF
 #include <stdarg.h>
 
-#if TK_SUPPORT_SMP && TM_CONSOLE_USB_CDC
+#if TM_CONSOLE_USB_CDC
+#if TK_SUPPORT_SMP
 #include <tk/smp.h>
+#endif
 
 /*
  * tm_vsprintf() emits one logical call as several tm_putchar()/tm_snd_dat()
  * fragments.  The USB ring lock makes each fragment safe, but without this
- * outer lock two processors can still splice fragments from different calls
- * into one corrupted line.  Static zero initialization is the unlocked
- * representation of T_SPLOCK and is available before the startup banner.
+ * outer lock a second writer can splice fragments from different calls into
+ * one corrupted line -- another processor under SMP, or simply a
+ * higher-priority task that preempts between two fragments on one core.
  *
- * The interrupt-preserving form also prevents a normal handler on the same
- * processor from deadlocking against a task it interrupted.  Consequently a
- * tm_printf call is a diagnostic operation, not a hard-real-time operation:
- * local interrupts remain masked until that complete call has been emitted.
+ * Either way local interrupts remain masked until the complete call has been
+ * emitted, so a tm_printf call is a diagnostic operation, not a
+ * hard-real-time one.  Under SMP the interrupt-preserving spinlock also stops
+ * a handler on the same processor deadlocking against a task it interrupted.
  */
+
+#if TK_SUPPORT_SMP
+
+/* Static zero initialization is the unlocked representation of T_SPLOCK and
+   is available before the startup banner. */
 LOCAL T_SPLOCK tm_printf_smp_lock;
 EXPORT volatile UW tm_printf_smp_contentions;
 EXPORT volatile UW tm_printf_smp_calls[TK_MAX_CORE];
@@ -68,7 +75,33 @@ LOCAL void tm_printf_unlock(UINT intsts)
 {
 	(void)ISpinUnlock(&tm_printf_smp_lock, intsts);
 }
-#endif
+
+#else	/* single core */
+
+/*
+ * One processor still needs this.  tm_vsprintf() emits a logical call as
+ * several tm_putchar() fragments, and a higher-priority task that preempts
+ * between two of them splices its own output into the middle of the line.
+ * That is not an SMP hazard, it is a preemption hazard, and it exists at
+ * TK_MAX_CORE == 1 exactly as it does at 2.
+ *
+ * Masking local interrupts is what the SMP path already does -- ISpinLock is
+ * interrupt-preserving -- so the cost profile is unchanged: tm_printf is
+ * diagnostic output, not hard-real-time.
+ */
+LOCAL void tm_printf_lock(UINT *intsts)
+{
+	DI(*intsts);
+}
+
+LOCAL void tm_printf_unlock(UINT intsts)
+{
+	EI(intsts);
+}
+
+#endif	/* TK_SUPPORT_SMP */
+
+#endif	/* TM_CONSOLE_USB_CDC */
 
 /* Output function */
 typedef	struct {
@@ -338,7 +371,7 @@ EXPORT INT	tm_printf( const UB *format, ... )
 {
 	va_list	ap;
 	INT	result;
-#if TK_SUPPORT_SMP && TM_CONSOLE_USB_CDC
+#if TM_CONSOLE_USB_CDC
 	UINT	intsts;
 
 	tm_printf_lock(&intsts);
@@ -362,7 +395,7 @@ EXPORT INT	tm_printf( const UB *format, ... )
 	va_end(ap);
 	result = par.len;
 #endif
-#if TK_SUPPORT_SMP && TM_CONSOLE_USB_CDC
+#if TM_CONSOLE_USB_CDC
 	tm_printf_unlock(intsts);
 #endif
 	return result;

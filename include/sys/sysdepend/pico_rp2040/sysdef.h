@@ -75,16 +75,14 @@
  *	GP25	WL_CS	radio chip select
  *	GP29	WL_CLK	radio SPI clock (also ADC3 / VSYS sense)
  *
- * GP0/GP1 carry UART0 (console copy + crash report) only when built with
- * "make CRASH_REPORT=1" or CONSOLE=uart.  By default the build defines
- * BOARD_UART0_FREE=1 and the console is on USB only, leaving them free.
+ * Also already committed on this board: GP0/GP1 are the UART0 console, and
+ * GP26..GP28 are the sample ADC driver's inputs when USE_SDEV_DRV is enabled.
  *
- * No other pin is configured at boot.  (The Pico W's on-board LED is on the
- * radio, so applications that want an LED wire an external one to a free
- * pin and set it up themselves with gpio_set_pin().)
+ * BOARD_LED_PIN is the external LED used as the liveness indicator.  Change
+ * it to any free GPIO that has an LED attached.
  */
-#ifndef BOARD_UART0_FREE
-#define	BOARD_UART0_FREE	0	/* 1: boot leaves GP0/GP1 alone */
+#ifndef BOARD_LED_PIN		/* base: robot.mk moves it off GP16 (left encoder A) */
+#define	BOARD_LED_PIN		16
 #endif
 
 /*
@@ -98,7 +96,7 @@
  * available.
  *
  * This located the unaligned .data load that HardFaulted every boot of the
- * stock port (see docs/evidence/phase0/).  It is retained, disabled, because
+ * stock port during baseline import.  It is retained, disabled, because
  * Phase 3 core-1 bring-up has the same problem: the second core comes up with
  * no console and no scheduler, so a GPIO checkpoint is the only signal
  * available.

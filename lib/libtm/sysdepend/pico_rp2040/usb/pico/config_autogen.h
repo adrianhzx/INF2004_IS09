@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 #ifndef PICO_CONFIG_AUTOGEN_H
 #define PICO_CONFIG_AUTOGEN_H
 

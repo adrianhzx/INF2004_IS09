@@ -32,12 +32,7 @@
 
 /* 
  * Initialize analog input pins
- *	The kernel does not set up any ADC pin at boot.  Set the flag to TRUE
- *	for each channel you use: the driver then makes that pin an analog
- *	input (digital input and pulls off) when it starts.  Record the pin
- *	in TEAM.md.
- *	  channel 0 = GP26, channel 1 = GP27, channel 2 = GP28
- *	  channel 3 = GP29 is the Pico W RADIO CLOCK: never set _3 to TRUE.
+ *	Enable when not performed in the OS initialization process.
  */
 #define	DEVCONF_ADC_PIN_INIT_0	FALSE
 #define	DEVCONF_ADC_PIN_INIT_1	FALSE

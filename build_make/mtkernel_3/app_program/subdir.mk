@@ -2,8 +2,8 @@
 # micro T-Kernel 3.0 BSP  makefile
 ################################################################################
 
-# app_program/*.c plus one level of subfolders (one per subsystem)
-TEMP_SRCS = $(wildcard ../app_program/*.c) $(wildcard ../app_program/*/*.c)
+# IS09 port (19 Nov): the IS09 modules in app_program/is09/<subsystem>/ too
+TEMP_SRCS = $(wildcard ../app_program/*.c) $(wildcard ../app_program/is09/*/*.c)
 TEMP_OBJS = $(TEMP_SRCS:.c=.o)
 TEMP_DEPS = $(TEMP_SRCS:.c=.d)
 
@@ -12,7 +12,7 @@ C_DEPS += $(subst ../, ./mtkernel_3/, $(TEMP_DEPS))
 
 mtkernel_3/app_program/%.o: ../app_program/%.c
 	@echo 'Building file: $<'
-	@mkdir -p $(dir $@)
+	@mkdir -p "$(@D)"
 	$(GCC) $(CFLAGS) -D$(TARGET) $(INCPATH) -MF"$(@:%.o=%.d)" -MT"$(@)" -c -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '

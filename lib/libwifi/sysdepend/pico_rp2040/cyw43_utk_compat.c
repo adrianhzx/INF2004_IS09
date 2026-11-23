@@ -1,6 +1,13 @@
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /* Pico SDK and cyw43-driver hooks supplied by micro T-Kernel.
- * The radio is polled only by a TP_PRC1 service task, so no SDK background
- * interrupt or second scheduler is introduced. */
+ * The radio is polled only by its own service task -- pinned to TP_PRC1
+ * under SMP, and the sole processor on a single-core build -- so no SDK
+ * background interrupt or second scheduler is introduced either way. */
 
 #include <stdarg.h>
 #include <stdbool.h>
@@ -13,50 +20,26 @@
 #include "hardware/irq.h"
 #include "hardware/structs/timer.h"
 #include "cyw43.h"
+#include "cyw43_utk.h"
+
+#include "smp_compat.h"
 
 extern int32_t tk_dly_tsk(uint32_t delay);
 
 volatile uint32_t cyw43_utk_poll_requested;
 
-/*
- * Keep the claim bitmaps safe in all supported configurations, the same split
- * usb_console.c's tx_lock_enter() already makes: interrupt masking is
- * sufficient on a single-core build, SMP additionally needs a cross-core lock.
- *
- * CNF_SMP is tested rather than TK_SUPPORT_SMP because it arrives as a -D flag
- * and needs no header; this file lives in the pico-sdk namespace and must not
- * pull in tk/syslib.h, whose size_t typedef collides here (the same reason
- * cyw43_utk_kernel.c exists as a separate translation unit). That is also why
- * the UP path open-codes PRIMASK save/restore instead of using DI()/EI().
- */
-#if CNF_SMP
-typedef volatile uint32_t T_SPLOCK;
-extern int32_t ISpinLock(T_SPLOCK *lock, uint32_t *intsts);
-extern int32_t ISpinUnlock(T_SPLOCK *lock, uint32_t intsts);
-
 static T_SPLOCK claim_lock;
-#endif
 
 uint32_t hw_claim_lock(void)
 {
     uint32_t saved;
-#if CNF_SMP
     (void)ISpinLock(&claim_lock, &saved);
-#else
-    __asm__ volatile("mrs %0, primask" : "=r"(saved));
-    __asm__ volatile("cpsid i" ::: "memory");
-#endif
     return saved;
 }
 
 void hw_claim_unlock(uint32_t saved)
 {
-#if CNF_SMP
     (void)ISpinUnlock(&claim_lock, saved);
-#else
-    __asm__ volatile("" ::: "memory");
-    __asm__ volatile("msr primask, %0" :: "r"(saved) : "memory");
-#endif
 }
 
 bool hw_is_claimed(const uint8_t *bits, uint bit_index)
@@ -162,14 +145,19 @@ void cyw43_hal_get_mac(int index, uint8_t mac[6])
     memcpy(mac, cyw43_state.mac, 6);
 }
 
-#if !TM_NET_LWIP
-/* With NET=lwip these five are the real implementations from
- * lib/cyw43-driver/src/cyw43_lwip.c (unmodified upstream) instead --
- * defining both would be a duplicate symbol at link time. */
+#if !TM_WIFI_NETIF
 void cyw43_cb_tcpip_init(cyw43_t *self, int itf) { (void)self; (void)itf; }
 void cyw43_cb_tcpip_deinit(cyw43_t *self, int itf) { (void)self; (void)itf; }
-void cyw43_cb_tcpip_set_link_up(cyw43_t *self, int itf) { (void)self; (void)itf; }
-void cyw43_cb_tcpip_set_link_down(cyw43_t *self, int itf) { (void)self; (void)itf; }
+void cyw43_cb_tcpip_set_link_up(cyw43_t *self, int itf)
+{
+    (void)self;
+    if(itf == CYW43_ITF_STA) cyw43_utk_link_state_changed(1);
+}
+void cyw43_cb_tcpip_set_link_down(cyw43_t *self, int itf)
+{
+    (void)self;
+    if(itf == CYW43_ITF_STA) cyw43_utk_link_state_changed(0);
+}
 void cyw43_cb_process_ethernet(void *arg, int itf, size_t len,
                               const uint8_t *buf)
 {

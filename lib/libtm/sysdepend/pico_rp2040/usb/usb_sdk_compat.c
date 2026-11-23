@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /* Pico SDK hooks needed by TinyUSB, implemented on micro T-Kernel. */
 
 #include <stdarg.h>

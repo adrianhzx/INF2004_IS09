@@ -1,5 +1,17 @@
-/* Generated from pico-sdk 2.2.0 cyw43_bus_pio_spi.pio.
- * Only the program selected by the RP2040 Pico W driver is retained. */
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/*
+ * Generated from the Pico SDK 2.2.0 source cyw43_bus_pio_spi.pio.
+ * Only the program selected by the RP2040 Pico W driver is retained.
+ *
+ * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
 #pragma once
 
 #include "hardware/pio.h"

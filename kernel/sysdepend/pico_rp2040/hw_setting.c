@@ -19,13 +19,12 @@
  *	startup / shoutdown processing for hardware
  *	
  *	Pin function Setting (for RaspberryPi Pico W)
- *		P0   : UART0-TX	(only with make CRASH_REPORT=1 or CONSOLE=uart)
+ *		BOARD_LED_PIN : GPIO out (external LED)
+ *		P0   : UART0-TX
  *		P1   : UART0-RX
  *
- *	Only the console pins are set up at boot.  Every other GPIO is left
- *	in its reset state for the application (or a driver it enables) to
- *	configure.  GP23/24/25/29 belong to the CYW43439 radio on the Pico W
- *	and are deliberately left alone here; see the board sysdef.h.
+ *	GP23/24/25/29 belong to the CYW43439 radio on the Pico W and are
+ *	deliberately left alone here; see BOARD_LED_PIN in the board sysdef.h.
  */
 
 #include <kernel.h>
@@ -74,15 +73,37 @@ LOCAL const UW module_tbl[] = {
  * Setup pin functions Tadle
  */
 LOCAL const T_SETUP_REG pinfnc_tbl[] = {
-#if !BOARD_UART0_FREE
-	/* P0,P1 : UART0 console mirror */
+	/* External LED */
+	{GPIO_CTRL(BOARD_LED_PIN),	GPIO_CTRL_FUNCSEL_SIO},	/* LED pin GPIO */
+	{GPIO_OE, (1<<BOARD_LED_PIN)},				/* LED pin output enable */
+#if !defined(TM_CONSOLE_UART) || TM_CONSOLE_UART	/* base: GP0/GP1 are the right encoder when the UART mirror is off */
+	/* P0,P1 : UART0 */
 	{GPIO_CTRL(0),	GPIO_CTRL_FUNCSEL_UART},	/* P0 UART0-TX */
 	{GPIO_CTRL(1),	GPIO_CTRL_FUNCSEL_UART},	/* P1 UART0-RX */
 #endif
 
-	/* ADC (GP26-28) and I2C pins are not set up here: their drivers
-	   claim their own pins when configured to.  See config_device.h,
-	   adc_cnf_sysdep.h and i2c_cnf_sysdep.h. */
+#if USE_SDEV_DRV	// Do not use sample device driver
+	/* P26 : ADC0 */
+	{GPIO_CTRL(26),	GPIO_CTRL_FUNCSEL_NULL},
+	{GPIO(26), GPIO_DRIVE_4MA | GPIO_SHEMITT},	/* Disable input & pull-up & pull-down */
+
+	/* P27 : ADC1 */
+	{GPIO_CTRL(27),	GPIO_CTRL_FUNCSEL_NULL},
+	{GPIO(27), GPIO_DRIVE_4MA | GPIO_SHEMITT},	/* Disable input & pull-up & pull-down */
+
+	/* P28 : ADC2 */
+	{GPIO_CTRL(28),	GPIO_CTRL_FUNCSEL_NULL},
+	{GPIO(28), GPIO_DRIVE_4MA | GPIO_SHEMITT},	/* Disable input & pull-up & pull-down */
+
+	/* P8 : I2C0_SDA */
+	{GPIO_CTRL(8),	GPIO_CTRL_FUNCSEL_I2C},
+	{GPIO(8), GPIO_IE | GPIO_DRIVE_4MA | GPIO_PUE | GPIO_SHEMITT},	/* Pull-up */
+
+	/* P9 : I2C0_SCL */
+	{GPIO_CTRL(9),	GPIO_CTRL_FUNCSEL_I2C},
+	{GPIO(9), GPIO_IE | GPIO_DRIVE_4MA | GPIO_PUE | GPIO_SHEMITT},	/* Pull-up */
+
+#endif /* USE_SDEV_DRV */
 	{0, 0}
 };
 

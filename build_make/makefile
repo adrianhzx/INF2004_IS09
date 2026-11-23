@@ -50,18 +50,13 @@ ifeq ($(TARGET), _NUCLEO_H723_)
 include nucleo_h723.mk
 endif
 ifeq ($(TARGET), _PICO_RP2040_)
+# Robot: default build profile (usb_cdc + Wi-Fi + DHCP); see robot.mk
+-include robot_defaults.mk
 include pico_rp2040.mk
+-include robot.mk
 endif
 
 -include mtkernel_3/app_program/subdir.mk
-
-# Create every object directory up front.  Git does not store empty
-# directories, so a fresh clone lacks them, and not every compile rule
-# creates its own (make 3.81, shipped with macOS, picks the first matching
-# pattern rule, which may be one without a mkdir).
-ifneq ($(MAKECMDGOALS),clean)
-$(shell mkdir -p $(sort $(dir $(OBJS))))
-endif
 
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(strip $(ASM_DEPS)),)
@@ -78,9 +73,9 @@ endif
 # All EXE_FILE
 all: $(EXE_FILE).elf
 
-$(EXE_FILE).elf: $(OBJS)
+$(EXE_FILE).elf: $(OBJS) $(E2U)
 	@echo 'Linker: $@'
-	$(LINK)  $(LFLAGS) -T $(LNKFILE) -Wl,-Map,"$(EXE_FILE).map" -o "$(EXE_FILE).elf" $(OBJS)
+	$(LINK)  $(LFLAGS) -T $(LNKFILE) -Wl,-Map,"$(EXE_FILE).map" -o "$(EXE_FILE).elf" $(OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 ifneq ($(SIZE),)
 	$(SIZE) $(EXE_FILE).elf

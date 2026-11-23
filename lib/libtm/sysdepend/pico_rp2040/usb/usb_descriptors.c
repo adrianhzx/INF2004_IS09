@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2026 Muhamed Fauzi Bin Abbas
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 /* Minimal USB CDC ACM descriptors for the Thread-Metric console. */
 
 #include <string.h>
